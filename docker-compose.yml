@@ -1,61 +1,84 @@
 version: "3.9"
+
 services:
-db:
-image: postgres:16
-environment:
-POSTGRES_DB: ${POSTGRES_DB}
-POSTGRES_USER: ${POSTGRES_USER}
-POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./storage/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-qauser} -d ${POSTGRES_DB:-qa}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "${REDIS_MAXMEMORY}", "--maxmemory-policy", "${REDIS_POLICY}"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api-gateway:
+    build: ./services/api-gateway
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_TTL_SECONDS: ${REDIS_TTL_SECONDS}
+      LLM_PROVIDER: ${LLM_PROVIDER}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      responder-llm:
+        condition: service_started
+      scorer:
+        condition: service_started
+
+  responder-llm:
+    build: ./services/responder-llm
+    environment:
+      LLM_PROVIDER: ${LLM_PROVIDER}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      OLLAMA_HOST: ${OLLAMA_HOST}
+    expose:
+      - "8001"
+
+  scorer:
+    build: ./services/scorer
+    expose:
+      - "8002"
+
+  traffic-gen:
+    build: ./services/traffic-gen
+    environment:
+      TRAFFIC_RATE: ${TRAFFIC_RATE}
+      TRAFFIC_DISTR: ${TRAFFIC_DISTR}
+      LOGNORMAL_MU: ${LOGNORMAL_MU}
+      LOGNORMAL_SIGMA: ${LOGNORMAL_SIGMA}
+      PARETO_SHAPE: ${PARETO_SHAPE}
+      API_URL: http://api-gateway:8000/ask
+    depends_on:
+      api-gateway:
+        condition: service_started
+    profiles: ["load"]
+
 volumes:
-- db_data:/var/lib/postgresql/data
-- ./storage/init.sql:/docker-entrypoint-initdb.d/init.sql
-ports: ["5432:5432"]
-
-
-redis:
-image: redis:7-alpine
-command: [ "redis-server", "--maxmemory", "${REDIS_MAXMEMORY}", "--maxmemory-policy", "${REDIS_POLICY}" ]
-ports: ["6379:6379"]
-
-
-api-gateway:
-build: ./services/api-gateway
-environment:
-- POSTGRES_HOST=${POSTGRES_HOST}
-- POSTGRES_DB=${POSTGRES_DB}
-- POSTGRES_USER=${POSTGRES_USER}
-- POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-- REDIS_HOST=${REDIS_HOST}
-- REDIS_PORT=${REDIS_PORT}
-- REDIS_TTL_SECONDS=${REDIS_TTL_SECONDS}
-- LLM_PROVIDER=${LLM_PROVIDER}
-ports: ["8000:8000"]
-depends_on: [db, redis, responder-llm, scorer]
-
-
-responder-llm:
-build: ./services/responder-llm
-environment:
-- LLM_PROVIDER=${LLM_PROVIDER}
-- GEMINI_API_KEY=${GEMINI_API_KEY}
-- OLLAMA_HOST=${OLLAMA_HOST}
-
-
-scorer:
-build: ./services/scorer
-
-
-traffic-gen:
-build: ./services/traffic-gen
-environment:
-- TRAFFIC_RATE=${TRAFFIC_RATE}
-- TRAFFIC_DISTR=${TRAFFIC_DISTR}
-- LOGNORMAL_MU=${LOGNORMAL_MU}
-- LOGNORMAL_SIGMA=${LOGNORMAL_SIGMA}
-- PARETO_SHAPE=${PARETO_SHAPE}
-- API_URL=http://api-gateway:8000/ask
-depends_on: [api-gateway]
-
-
-volumes:
-db_data:
+  db_data:
