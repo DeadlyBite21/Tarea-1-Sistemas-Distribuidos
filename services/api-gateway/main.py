@@ -1,5 +1,5 @@
 import os, time, json
-import aioredis, asyncpg
+import redis.asyncio as redis, asyncpg
 from fastapi import FastAPI, HTTPException
 import httpx
 
@@ -24,7 +24,7 @@ SCORER_URL = os.getenv("SCORER_URL", "http://scorer:8002/score")
 
 @app.on_event("startup")
 async def startup():
-	app.state.redis = await aioredis.from_url(f"redis://{REDIS_HOST}:{REDIS_PORT}", encoding="utf-8", decode_responses=True)
+	app.state.redis = await redis.from_url(f"redis://{REDIS_HOST}:{REDIS_PORT}", encoding="utf-8", decode_responses=True)
 	app.state.pool = await asyncpg.create_pool(DB_DSN, min_size=1, max_size=5)
 
 
