@@ -10,6 +10,12 @@ KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
 QUESTION_TOPIC = os.getenv("KAFKA_QUESTION_TOPIC", "questions")
 SCORED_TOPIC = os.getenv("KAFKA_SCORED_TOPIC", "scored")
 
+from pydantic import BaseModel
+
+class QuestionRequest(BaseModel):
+	question: str
+	reference: str = None
+
 
 
 # DB
@@ -25,26 +31,22 @@ async def startup():
 
 
 
-@app.get("/ask")
-async def ask(qa_id: int):
+@app.post("/question")
+async def post_question(req: QuestionRequest):
 	start = time.perf_counter()
-	async with app.state.pool.acquire() as conn:
-		row = await conn.fetchrow("SELECT id, question_title, question_content, best_answer FROM qa_pairs WHERE id=$1", qa_id)
-	if not row:
-		raise HTTPException(404, "qa_id no existe")
-
-	# Enviar pregunta a Kafka
+	# Generate a unique id for this question (timestamp-based)
+	qa_id = int(time.time() * 1000)
 	question_payload = {
 		"qa_id": qa_id,
-		"question": row["question_title"] + "\n" + row["question_content"],
-		"reference": row["best_answer"]
+		"question": req.question,
+		"reference": req.reference
 	}
 	app.state.producer.send(QUESTION_TOPIC, question_payload)
 	app.state.producer.flush()
 
-	# Esperar respuesta en Kafka
+	# Wait for answer in Kafka
 	answer = None
-	timeout = 10  # segundos
+	timeout = 10  # seconds
 	t0 = time.time()
 	for msg in app.state.consumer:
 		data = msg.value
@@ -58,9 +60,5 @@ async def ask(qa_id: int):
 		raise HTTPException(504, "No se recibió respuesta de LLM/Scorer por Kafka")
 
 	latency_ms = int((time.perf_counter()-start)*1000)
-	async with app.state.pool.acquire() as conn:
-		await conn.execute(
-			"INSERT INTO answers(qa_id,llm_provider,llm_answer,rouge_l,cosine_sim,hits,latency_ms) VALUES($1,$2,$3,$4,$5,$6,$7)",
-			qa_id, answer.get("provider"), answer.get("answer"), answer.get("rouge_l"), answer.get("cosine_sim"), 1, latency_ms)
-
-	return {"source":"kafka", **answer, "latency_ms": latency_ms}
+	# Optionally, store in DB if needed
+	return {"source": "kafka", **answer, "latency_ms": latency_ms}

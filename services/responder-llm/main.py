@@ -9,19 +9,33 @@ import httpx
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
 QUESTION_TOPIC = os.getenv("KAFKA_QUESTION_TOPIC", "questions")
 ANSWER_TOPIC = os.getenv("KAFKA_ANSWER_TOPIC", "answers")
-PROVIDER = os.getenv("LLM_PROVIDER", "mock")
+PROVIDER = "mock"
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://ollama:11434")
 
 
 async def call_gemini(prompt: str) -> str:
 	# Minimal: usa REST de Generative Language API
-	url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+	if not GEMINI_KEY:
+		print("[responder-llm] ERROR: GEMINI_API_KEY is not set!")
+		return "(error) GEMINI_API_KEY not set"
+	url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+	headers = {"Content-Type": "application/json", "X-goog-api-key": GEMINI_KEY}
+	payload = {"contents": [{"parts": [{"text": prompt}]}]}
 	async with httpx.AsyncClient(timeout=60) as client:
-		r = await client.post(url, params={"key": GEMINI_KEY}, json={"contents":[{"parts":[{"text": prompt}]}]})
-		r.raise_for_status()
-		data = r.json()
-		return data["candidates"][0]["content"]["parts"][0]["text"]
+		try:
+			r = await client.post(url, headers=headers, json=payload)
+			r.raise_for_status()
+			data = r.json()
+			# Defensive: check keys
+			candidates = data.get("candidates")
+			if not candidates or not candidates[0].get("content"):
+				print(f"[responder-llm] ERROR: Unexpected Gemini response: {data}")
+				return "(error) Gemini API response format error"
+			return candidates[0]["content"]["parts"][0]["text"]
+		except Exception as e:
+			print(f"[responder-llm] ERROR: Gemini API call failed: {e}")
+			return f"(error) Gemini API call failed: {e}"
 
 
 async def call_ollama(prompt: str) -> str:

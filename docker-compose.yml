@@ -1,5 +1,4 @@
 version: "3.9"
-
 services:
   db:
     image: postgres:16
@@ -18,7 +17,6 @@ services:
       timeout: 3s
       retries: 10
 
-
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     environment:
@@ -36,9 +34,9 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     healthcheck:
@@ -47,6 +45,7 @@ services:
       timeout: 10s
       retries: 10
     restart: unless-stopped
+
 
   api-gateway:
     build: ./services/api-gateway
@@ -69,6 +68,7 @@ services:
       scorer:
         condition: service_started
 
+
   responder-llm:
     build: ./services/responder-llm
     environment:
@@ -83,6 +83,7 @@ services:
       kafka:
         condition: service_healthy
 
+
   scorer:
     build: ./services/scorer
     expose:
@@ -90,6 +91,7 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+
 
   traffic-gen:
     build: ./services/traffic-gen
@@ -100,13 +102,31 @@ services:
       LOGNORMAL_SIGMA: ${LOGNORMAL_SIGMA}
       PARETO_SHAPE: ${PARETO_SHAPE}
       API_URL: http://api-gateway:8000/ask
+      KAFKA_BROKER: kafka:9092
+      KAFKA_QUESTION_TOPIC: questions
     depends_on:
-      api-gateway:
-        condition: service_started
+      - kafka
+      - api-gateway
+    restart: unless-stopped
+
+
+  cache:
+    build: ./services/Cache
+    environment:
+      KAFKA_BROKER: kafka:9092
+      KAFKA_QUESTION_TOPIC: questions
+      KAFKA_CACHE_HIT_TOPIC: cache_hit
+      KAFKA_CACHE_MISS_TOPIC: cache_miss
+      KAFKA_ANSWER_TOPIC: answers
+      CACHE_SIZE: 1000
+      CACHE_POLICY: LRU
+      CACHE_TTL: 3600
+    expose:
+      - "8004"
+    depends_on:
       kafka:
         condition: service_healthy
-    profiles:
-      - "load"
+
 
 volumes:
   db_data:
