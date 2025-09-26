@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 WORKDIR /app
 COPY main.py .
-RUN pip install fastapi uvicorn[standard] rouge-score sentence-transformers numpy
+RUN pip install rouge-score sentence-transformers numpy kafka-python
 EXPOSE 8002
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["python", "main.py"]

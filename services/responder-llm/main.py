@@ -1,14 +1,14 @@
-import os
-from fastapi import FastAPI
-from pydantic import BaseModel
+import os, json, time
+from kafka import KafkaConsumer, KafkaProducer
 import httpx
 
 
-class Q(BaseModel):
-	question: str
 
 
-app = FastAPI()
+
+KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
+QUESTION_TOPIC = os.getenv("KAFKA_QUESTION_TOPIC", "questions")
+ANSWER_TOPIC = os.getenv("KAFKA_ANSWER_TOPIC", "answers")
 PROVIDER = os.getenv("LLM_PROVIDER", "mock")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://ollama:11434")
@@ -32,12 +32,40 @@ async def call_ollama(prompt: str) -> str:
 		return r.text
 
 
-@app.post("/answer")
-async def answer(q: Q):
-	if PROVIDER == "gemini":
-		text = await call_gemini(q.question)
-	elif PROVIDER == "ollama":
-		text = await call_ollama(q.question)
-	else:
-		text = f"(mock) Respuesta plausible a: {q.question[:120]}..."
-	return {"provider": PROVIDER, "answer": text}
+
+def run_kafka_llm():
+	consumer = KafkaConsumer(QUESTION_TOPIC, bootstrap_servers=KAFKA_BROKER, value_deserializer=lambda m: json.loads(m.decode("utf-8")), group_id="responder-llm", auto_offset_reset="earliest", enable_auto_commit=True)
+	producer = KafkaProducer(bootstrap_servers=KAFKA_BROKER, value_serializer=lambda v: json.dumps(v).encode("utf-8"))
+	print("[responder-llm] Esperando preguntas en Kafka...")
+	import asyncio
+	async def process_message(data):
+		qa_id = data.get("qa_id")
+		question = data.get("question")
+		reference = data.get("reference")
+		if not qa_id or not question:
+			return
+		# Llama al modelo
+		if PROVIDER == "gemini":
+			text = await call_gemini(question)
+		elif PROVIDER == "ollama":
+			text = await call_ollama(question)
+		else:
+			text = f"(mock) Respuesta plausible a: {question[:120]}..."
+		# Produce respuesta en Kafka
+		answer_payload = {
+			"qa_id": qa_id,
+			"provider": PROVIDER,
+			"answer": text,
+			"reference": reference
+		}
+		producer.send(ANSWER_TOPIC, answer_payload)
+		producer.flush()
+		print(f"[responder-llm] Respondió pregunta {qa_id}")
+
+	loop = asyncio.get_event_loop()
+	for msg in consumer:
+		data = msg.value
+		loop.run_until_complete(process_message(data))
+
+if __name__ == "__main__":
+	run_kafka_llm()

@@ -1,8 +1,9 @@
-import os, time, random, math, asyncio
-import httpx
+import os, time, random, math, asyncio, json
+from kafka import KafkaProducer
 
 
-API_URL = os.getenv('API_URL', 'http://localhost:8000/ask')
+KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'kafka:9092')
+QUESTION_TOPIC = os.getenv('KAFKA_QUESTION_TOPIC', 'questions')
 RATE = float(os.getenv('TRAFFIC_RATE', '6')) # eventos/min
 DISTR = os.getenv('TRAFFIC_DISTR', 'poisson') # poisson|lognormal|pareto
 MU = float(os.getenv('LOGNORMAL_MU','0.0'))
@@ -26,16 +27,19 @@ async def interarrival_seconds():
 
 
 async def main():
-	async with httpx.AsyncClient(timeout=30) as client:
-		while True:
-			qa_id = random.randint(Q_MIN, Q_MAX)
-			try:
-				r = await client.get(API_URL, params={"qa_id": qa_id})
-				r.raise_for_status()
-			except Exception as e:
-				print("error", e)
-			delay = await interarrival_seconds()
-			await asyncio.sleep(delay)
+	producer = KafkaProducer(bootstrap_servers=KAFKA_BROKER, value_serializer=lambda v: json.dumps(v).encode("utf-8"))
+	while True:
+		qa_id = random.randint(Q_MIN, Q_MAX)
+		question_payload = {
+			"qa_id": qa_id,
+			"question": f"Pregunta simulada {qa_id}",
+			"reference": f"Respuesta simulada {qa_id}"
+		}
+		producer.send(QUESTION_TOPIC, question_payload)
+		producer.flush()
+		print(f"[traffic-gen] Pregunta enviada: {qa_id}")
+		delay = await interarrival_seconds()
+		await asyncio.sleep(delay)
 
 
 if __name__ == "__main__":
