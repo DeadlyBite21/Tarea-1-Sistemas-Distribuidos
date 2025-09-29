@@ -274,6 +274,79 @@ async def get_random_question():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/questions")
+async def get_questions(limit: int = 100, offset: int = 0, random: bool = False):
+    """Obtener múltiples preguntas de la base de datos"""
+    try:
+        conn = sqlite3.connect(DB)
+        c = conn.cursor()
+        
+        if random:
+            # Obtener preguntas aleatorias
+            c.execute("SELECT id, question, best_answer FROM qa WHERE question IS NOT NULL AND question != '' ORDER BY RANDOM() LIMIT ?", (limit,))
+        else:
+            # Obtener preguntas con paginación
+            c.execute("SELECT id, question, best_answer FROM qa WHERE question IS NOT NULL AND question != '' LIMIT ? OFFSET ?", (limit, offset))
+        
+        rows = c.fetchall()
+        conn.close()
+        
+        questions = []
+        for row in rows:
+            questions.append({
+                "id": row[0],
+                "question": row[1],
+                "best_answer": row[2]
+            })
+        
+        return {
+            "questions": questions,
+            "count": len(questions),
+            "limit": limit,
+            "offset": offset,
+            "random": random
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/popular_questions")
+async def get_popular_questions(limit: int = 50):
+    """Obtener preguntas más frecuentes (si han sido procesadas múltiples veces)"""
+    try:
+        conn = sqlite3.connect(DB)
+        c = conn.cursor()
+        
+        c.execute("""
+            SELECT id, question, best_answer, count, score 
+            FROM qa 
+            WHERE question IS NOT NULL AND question != '' 
+            ORDER BY count DESC, score DESC 
+            LIMIT ?
+        """, (limit,))
+        
+        rows = c.fetchall()
+        conn.close()
+        
+        questions = []
+        for row in rows:
+            questions.append({
+                "id": row[0],
+                "question": row[1],
+                "best_answer": row[2],
+                "count": row[3] or 1,
+                "score": row[4]
+            })
+        
+        return {
+            "questions": questions,
+            "count": len(questions),
+            "criteria": "popularity"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/")
 async def root():
     """Endpoint raíz"""

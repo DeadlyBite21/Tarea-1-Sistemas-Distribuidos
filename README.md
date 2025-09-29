@@ -90,7 +90,38 @@ curl http://localhost:8003/health  # LLM
 curl http://localhost:8004/health  # Storage
 ```
 
-## 🧪 Guía de Pruebas
+## 📊 Análisis del Comportamiento de la Caché
+
+El proyecto incluye herramientas comprensivas para el análisis experimental del sistema de caché:
+
+### Ejecutar Análisis Completo
+```bash
+# Análisis completo con todos los experimentos
+python3 analysis/run_complete_analysis.py
+
+# Solo análisis de comportamiento bajo diferentes distribuciones
+python3 analysis/cache_analyzer.py
+
+# Solo evaluación de políticas de caché (LRU, LFU, FIFO)
+python3 analysis/policy_evaluator.py
+```
+
+### Experimentos Incluidos
+- **Distribuciones de Tráfico**: Uniforme, Zipf, Hotspot, Burst
+- **Políticas de Caché**: LRU, LFU, FIFO
+- **Análisis de Tamaños**: 10, 25, 50, 100, 200 entradas
+- **Métricas de Rendimiento**: Hit rate, latencia, throughput
+
+### Reportes Generados
+- Análisis en consola con visualizaciones ASCII
+- Gráficos y visualizaciones (si matplotlib disponible)
+- Reporte final comprensivo (.txt) con recomendaciones
+
+Ver detalles completos en [`analysis/README.md`](analysis/README.md).
+
+---
+
+## 🧪 Testing Integral
 
 ### Prueba 1: Generar Pregunta Individual
 ```bash
