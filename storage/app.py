@@ -1,102 +1,284 @@
-from flask import Flask, request, jsonify
-import sqlite3, csv, os
+import json
+import asyncio
+import logging
+import sqlite3
+import csv
+import os
+from typing import Optional
+from fastapi import FastAPI, HTTPException
+from contextlib import asynccontextmanager
+from aiokafka import AIOKafkaConsumer
 
-app = Flask(__name__)
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Variables globales
+kafka_consumer: Optional[AIOKafkaConsumer] = None
 DB = "data.db"
-DATASET = "train.csv"   # asegúrate que esté en la carpeta storage/
+DATASET = "train.csv"
 
-# ---------- Inicializar DB ----------
 def init_db():
+    """Inicializar base de datos"""
     conn = sqlite3.connect(DB)
     c = conn.cursor()
     c.execute("""CREATE TABLE IF NOT EXISTS qa (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id TEXT,
         question TEXT,
         best_answer TEXT,
         generated_answer TEXT,
         score REAL,
+        timestamp TEXT,
         count INTEGER DEFAULT 1
     )""")
     conn.commit()
     conn.close()
+    logger.info("Base de datos inicializada")
 
-# ---------- Cargar dataset si DB está vacía ----------
 def load_dataset():
+    """Cargar dataset si la DB está vacía"""
     if not os.path.exists(DATASET):
-        print(f"⚠️ Dataset {DATASET} no encontrado en el contenedor")
+        logger.warning(f"Dataset {DATASET} no encontrado en el contenedor")
         return
+    
     conn = sqlite3.connect(DB)
     c = conn.cursor()
+    
+    # Verificar si ya hay datos
+    count = c.execute("SELECT COUNT(*) FROM qa").fetchone()[0]
+    if count > 0:
+        logger.info(f"Base de datos ya contiene {count} registros")
+        conn.close()
+        return
+    
+    logger.info("Cargando dataset en la base de datos...")
+    
     with open(DATASET, "r", encoding="utf-8") as f:
         reader = csv.reader(f)
         next(reader)  # saltar header
+        loaded = 0
         for row in reader:
-            # dataset: [class, title, content, best_answer]
             try:
                 _, title, content, best = row
-            except ValueError:
+                q = title if title else content
+                c.execute("INSERT INTO qa (question, best_answer) VALUES (?,?)", (q, best))
+                loaded += 1
+            except (ValueError, IndexError):
                 continue
-            q = title if title else content
-            c.execute("INSERT INTO qa (question, best_answer) VALUES (?,?)", (q, best))
+    
     conn.commit()
     conn.close()
+    logger.info(f"Dataset cargado: {loaded} registros")
 
-# ---------- Endpoint para guardar respuesta ----------
-@app.route("/save", methods=["POST"])
-def save():
-    data = request.get_json()
-    q = data["q"]
-    gen_a = data["a"]
-    score = data.get("score", None)
+async def init_kafka():
+    """Inicializar consumidor de Kafka"""
+    global kafka_consumer
+    
+    try:
+        kafka_consumer = AIOKafkaConsumer(
+            'storage.persist',
+            bootstrap_servers='kafka:29092',
+            auto_offset_reset='earliest',
+            group_id='storage_group',
+            value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+        )
+        
+        await kafka_consumer.start()
+        logger.info("Kafka consumer iniciado correctamente")
+        
+        # Iniciar el loop de consumo
+        asyncio.create_task(consume_loop())
+        
+    except Exception as e:
+        logger.error(f"Error al inicializar Kafka: {e}")
+        raise
 
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
+async def close_kafka():
+    """Cerrar conexión de Kafka"""
+    global kafka_consumer
+    
+    if kafka_consumer:
+        await kafka_consumer.stop()
+    
+    logger.info("Conexión de Kafka cerrada")
 
-    row = c.execute("SELECT id, count FROM qa WHERE question=? LIMIT 1", (q,)).fetchone()
-    if row:
-        c.execute("UPDATE qa SET generated_answer=?, score=?, count=? WHERE id=?",
-                  (gen_a, score, row[1]+1, row[0]))
-    else:
-        c.execute("INSERT INTO qa (question, generated_answer, score) VALUES (?,?,?)",
-                  (q, gen_a, score))
-    conn.commit()
-    conn.close()
-    return jsonify({"status": "saved"})
+async def consume_loop():
+    """Loop principal para consumir mensajes de Kafka"""
+    try:
+        async for message in kafka_consumer:
+            logger.info(f"Mensaje recibido para almacenamiento: {message.value}")
+            await process_message(message.value)
+    except Exception as e:
+        logger.error(f"Error en consume_loop: {e}")
 
-# ---------- Endpoint para listar registros ----------
-@app.route("/all", methods=["GET"])
-def get_all():
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-    c.execute("SELECT * FROM qa LIMIT 20")
-    rows = c.fetchall()
-    conn.close()
-    return jsonify(rows)
+async def process_message(message_data):
+    """Procesar mensaje y almacenar en base de datos"""
+    try:
+        message_id = message_data.get('id', '')
+        question = message_data.get('question', '')
+        answer = message_data.get('answer', '')
+        score = message_data.get('score', 0.0)
+        timestamp = message_data.get('timestamp', '')
+        
+        if not question or not answer:
+            logger.warning("Mensaje incompleto recibido")
+            return
+        
+        # Guardar en base de datos
+        conn = sqlite3.connect(DB)
+        c = conn.cursor()
+        
+        # Verificar si ya existe esta pregunta
+        existing = c.execute(
+            "SELECT id, count FROM qa WHERE question=? LIMIT 1", 
+            (question,)
+        ).fetchone()
+        
+        if existing:
+            # Actualizar registro existente
+            c.execute(
+                "UPDATE qa SET message_id=?, generated_answer=?, score=?, timestamp=?, count=? WHERE id=?",
+                (message_id, answer, score, timestamp, existing[1] + 1, existing[0])
+            )
+            logger.info(f"Registro actualizado para pregunta existente (count: {existing[1] + 1})")
+        else:
+            # Insertar nuevo registro
+            c.execute(
+                "INSERT INTO qa (message_id, question, generated_answer, score, timestamp) VALUES (?,?,?,?,?)",
+                (message_id, question, answer, score, timestamp)
+            )
+            logger.info("Nuevo registro insertado")
+        
+        conn.commit()
+        conn.close()
+        
+    except Exception as e:
+        logger.error(f"Error procesando mensaje para almacenamiento: {e}")
 
-# ---------- Endpoint para obtener una pregunta random ----------
-@app.route("/random", methods=["GET"])
-def get_random():
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-    c.execute("SELECT id, question, best_answer FROM qa ORDER BY RANDOM() LIMIT 1")
-    row = c.fetchone()
-    conn.close()
-
-    if row:
-        return jsonify({"id": row[0], "question": row[1], "best_answer": row[2]})
-    else:
-        return jsonify({"error": "No data in DB"})
-
-# ---------- Main ----------
-if __name__ == "__main__":
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Gestión del ciclo de vida de la aplicación"""
+    # Startup
     init_db()
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM qa")
-    if c.fetchone()[0] == 0:
-        print("📥 Cargando dataset en la base de datos...")
-        load_dataset()
-    conn.close()
+    load_dataset()
+    await init_kafka()
+    
+    yield
+    
+    # Shutdown
+    await close_kafka()
 
-    print("✅ Storage iniciado en http://0.0.0.0:5000")
-    app.run(host="0.0.0.0", port=5000)
+# Crear aplicación FastAPI
+app = FastAPI(
+    title="Storage Service",
+    description="Servicio de almacenamiento de preguntas y respuestas",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+@app.get("/health")
+async def health_check():
+    """Endpoint de verificación de salud"""
+    try:
+        conn = sqlite3.connect(DB)
+        c = conn.cursor()
+        count = c.execute("SELECT COUNT(*) FROM qa").fetchone()[0]
+        conn.close()
+        
+        return {
+            "status": "healthy",
+            "service": "storage",
+            "kafka_connected": kafka_consumer is not None,
+            "database_records": count
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "service": "storage",
+            "error": str(e)
+        }
+
+@app.get("/stats")
+async def get_stats():
+    """Estadísticas de la base de datos"""
+    try:
+        conn = sqlite3.connect(DB)
+        c = conn.cursor()
+        
+        total = c.execute("SELECT COUNT(*) FROM qa").fetchone()[0]
+        with_answers = c.execute("SELECT COUNT(*) FROM qa WHERE generated_answer IS NOT NULL").fetchone()[0]
+        avg_score = c.execute("SELECT AVG(score) FROM qa WHERE score IS NOT NULL").fetchone()[0]
+        
+        conn.close()
+        
+        return {
+            "total_records": total,
+            "records_with_answers": with_answers,
+            "average_score": round(avg_score, 3) if avg_score else 0.0
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/records")
+async def get_records(limit: int = 20):
+    """Obtener registros de la base de datos"""
+    try:
+        conn = sqlite3.connect(DB)
+        c = conn.cursor()
+        
+        c.execute("SELECT * FROM qa ORDER BY id DESC LIMIT ?", (limit,))
+        rows = c.fetchall()
+        
+        conn.close()
+        
+        records = []
+        for row in rows:
+            records.append({
+                "id": row[0],
+                "message_id": row[1],
+                "question": row[2],
+                "best_answer": row[3],
+                "generated_answer": row[4],
+                "score": row[5],
+                "timestamp": row[6],
+                "count": row[7]
+            })
+        
+        return {"records": records}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/random")
+async def get_random_question():
+    """Obtener una pregunta aleatoria"""
+    try:
+        conn = sqlite3.connect(DB)
+        c = conn.cursor()
+        
+        c.execute("SELECT id, question, best_answer FROM qa ORDER BY RANDOM() LIMIT 1")
+        row = c.fetchone()
+        
+        conn.close()
+        
+        if row:
+            return {
+                "id": row[0],
+                "question": row[1],
+                "best_answer": row[2]
+            }
+        else:
+            raise HTTPException(status_code=404, detail="No data in database")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/")
+async def root():
+    """Endpoint raíz"""
+    return {"message": "Storage Service - Question & Answer Storage"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8004)

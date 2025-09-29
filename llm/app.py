@@ -1,11 +1,12 @@
-
 import json
 import asyncio
 import logging
+import os
 from typing import Optional
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+import google.generativeai as genai
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -15,21 +16,25 @@ logger = logging.getLogger(__name__)
 kafka_consumer: Optional[AIOKafkaConsumer] = None
 kafka_producer: Optional[AIOKafkaProducer] = None
 
+# Configuración de Gemini
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'your-api-key-here')
+genai.configure(api_key=GOOGLE_API_KEY)
+
 async def init_kafka():
     """Inicializar consumidor y productor de Kafka"""
     global kafka_consumer, kafka_producer
     
     try:
-        # Configurar consumidor para respuestas del LLM
+        # Configurar consumidor
         kafka_consumer = AIOKafkaConsumer(
-            'questions.answers',
+            'questions.llm',
             bootstrap_servers='kafka:29092',
             auto_offset_reset='earliest',
-            group_id='score_group',
+            group_id='llm_group',
             value_deserializer=lambda m: json.loads(m.decode('utf-8'))
         )
         
-        # Configurar productor para enviar a storage
+        # Configurar productor  
         kafka_producer = AIOKafkaProducer(
             bootstrap_servers='kafka:29092',
             value_serializer=lambda v: json.dumps(v).encode('utf-8')
@@ -62,72 +67,57 @@ async def consume_loop():
     """Loop principal para consumir mensajes de Kafka"""
     try:
         async for message in kafka_consumer:
-            logger.info(f"Mensaje recibido para scoring: {message.value}")
+            logger.info(f"Mensaje recibido: {message.value}")
             await process_message(message.value)
     except Exception as e:
         logger.error(f"Error en consume_loop: {e}")
 
 async def process_message(message_data):
-    """Procesar mensaje de respuesta y calcular score"""
+    """Procesar mensaje y generar respuesta con Gemini"""
     try:
         question = message_data.get('question', '')
-        answer = message_data.get('answer', '')
         message_id = message_data.get('id', '')
-        timestamp = message_data.get('timestamp', '')
         
-        # Calcular score simple basado en la longitud de la respuesta
-        score = calculate_score(question, answer)
+        if not question:
+            logger.warning("Mensaje sin pregunta recibido")
+            return
         
-        # Preparar mensaje para storage
-        storage_message = {
+        # Generar respuesta con Gemini
+        logger.info(f"Procesando pregunta: {question}")
+        response = await generate_gemini_response(question)
+        
+        # Preparar mensaje para el servicio de score
+        answer_message = {
             'id': message_id,
             'question': question,
-            'answer': answer,
-            'score': score,
-            'timestamp': timestamp
+            'answer': response,
+            'timestamp': message_data.get('timestamp', '')
         }
         
-        # Enviar a storage
-        await kafka_producer.send('storage.persist', storage_message)
-        logger.info(f"Mensaje enviado a storage con score: {score}")
+        # Enviar a topic de respuestas
+        await kafka_producer.send('questions.answers', answer_message)
+        logger.info(f"Respuesta enviada para pregunta ID: {message_id}")
         
     except Exception as e:
         logger.error(f"Error procesando mensaje: {e}")
 
-def calculate_score(question: str, answer: str) -> float:
-    """Calcular un score simple para la respuesta"""
+async def generate_gemini_response(question: str) -> str:
+    """Generar respuesta usando Gemini"""
     try:
-        # Score básico basado en varios factores
-        score = 0.0
+        # Configurar el modelo
+        model = genai.GenerativeModel('gemini-1.5-pro')
         
-        # Factor 1: Longitud de la respuesta (respuestas muy cortas o muy largas penalizan)
-        answer_length = len(answer.split())
-        if 10 <= answer_length <= 200:
-            score += 0.4
-        elif 5 <= answer_length < 10 or 200 < answer_length <= 300:
-            score += 0.2
+        # Generar respuesta (usar generate_content en lugar de generate_content_async)
+        response = model.generate_content(question)
         
-        # Factor 2: Presencia de palabras clave de la pregunta en la respuesta
-        question_words = set(question.lower().split())
-        answer_words = set(answer.lower().split())
-        relevance = len(question_words.intersection(answer_words)) / max(len(question_words), 1)
-        score += relevance * 0.3
-        
-        # Factor 3: Estructura de la respuesta (presencia de puntuación)
-        if any(punct in answer for punct in ['.', '!', '?']):
-            score += 0.2
-        
-        # Factor 4: No contiene mensajes de error
-        error_indicators = ['error', 'lo siento', 'no pude', 'disculpe']
-        if not any(indicator in answer.lower() for indicator in error_indicators):
-            score += 0.1
-        
-        # Normalizar score entre 0 y 1
-        return min(1.0, max(0.0, score))
-        
+        if response and response.text:
+            return response.text.strip()
+        else:
+            return "Lo siento, no pude generar una respuesta para esa pregunta."
+            
     except Exception as e:
-        logger.error(f"Error calculando score: {e}")
-        return 0.5  # Score neutral en caso de error
+        logger.error(f"Error generando respuesta con Gemini: {e}")
+        return f"Error al procesar la pregunta: {str(e)}"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -140,8 +130,8 @@ async def lifespan(app: FastAPI):
 
 # Crear aplicación FastAPI
 app = FastAPI(
-    title="Score Service",
-    description="Servicio de evaluación y scoring de respuestas",
+    title="LLM Service",
+    description="Servicio de generación de respuestas usando Gemini",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -151,15 +141,15 @@ async def health_check():
     """Endpoint de verificación de salud"""
     return {
         "status": "healthy",
-        "service": "score",
+        "service": "llm",
         "kafka_connected": kafka_consumer is not None and kafka_producer is not None
     }
 
 @app.get("/")
 async def root():
     """Endpoint raíz"""
-    return {"message": "Score Service - Response Evaluation"}
+    return {"message": "LLM Service - Powered by Gemini"}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8002)
+    uvicorn.run(app, host="0.0.0.0", port=8003)

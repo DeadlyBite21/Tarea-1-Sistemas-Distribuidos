@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y wget && \
 COPY . .
 
 # Expose port
-EXPOSE 8001
+EXPOSE 8003
 
 # Wait for Kafka and start the application
-CMD ["wait-for-it", "kafka:29092", "--timeout=60", "--", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["wait-for-it", "kafka:29092", "--timeout=60", "--", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8003"]
