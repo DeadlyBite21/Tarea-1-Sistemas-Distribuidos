@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from aiokafka import AIOKafkaProducer
 import random
+import aiohttp
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -16,24 +17,39 @@ logger = logging.getLogger(__name__)
 # Variables globales para Kafka
 kafka_producer: Optional[AIOKafkaProducer] = None
 
-# Lista de preguntas de ejemplo para generar tráfico
-SAMPLE_QUESTIONS = [
+# URL del servicio de storage
+STORAGE_SERVICE_URL = "http://storage:8004"
+
+# Preguntas de fallback en caso de que storage no esté disponible
+FALLBACK_QUESTIONS = [
     "¿Cuál es la capital de Francia?",
     "¿Cómo funciona la inteligencia artificial?",
     "¿Qué es la programación orientada a objetos?",
     "Explica el concepto de machine learning",
-    "¿Cuáles son los principios de la arquitectura de microservicios?",
-    "¿Qué diferencia hay entre HTTP y HTTPS?",
-    "¿Cómo funciona Docker?",
-    "¿Qué es Kubernetes?",
-    "Explica el patrón de diseño Singleton",
-    "¿Cuáles son las ventajas de usar APIs REST?",
-    "¿Qué es la computación en la nube?",
-    "¿Cómo funcionan las bases de datos NoSQL?",
-    "¿Qué es el Big Data?",
-    "Explica qué es DevOps",
-    "¿Cuáles son los principios SOLID en programación?"
+    "¿Cuáles son los principios de la arquitectura de microservicios?"
 ]
+
+async def get_random_question_from_storage():
+    """Obtener una pregunta aleatoria del servicio de storage"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            # Intentar obtener una pregunta aleatoria del storage usando el parámetro random
+            async with session.get(f"{STORAGE_SERVICE_URL}/questions?limit=1&random=true") as response:
+                if response.status == 200:
+                    data = await response.json()
+                    questions = data.get('questions', [])
+                    if questions and len(questions) > 0:
+                        question = questions[0].get('question', '').strip()
+                        if question:
+                            return question
+        
+        # Si no se puede obtener del storage, usar fallback
+        logger.warning("No se pudo obtener pregunta del storage, usando fallback")
+        return random.choice(FALLBACK_QUESTIONS)
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo pregunta del storage: {e}")
+        return random.choice(FALLBACK_QUESTIONS)
 
 async def init_kafka():
     """Inicializar productor de Kafka"""
@@ -85,8 +101,8 @@ async def generate_question():
         if not kafka_producer:
             raise HTTPException(status_code=500, detail="Kafka producer no disponible")
         
-        # Seleccionar pregunta aleatoria
-        question = random.choice(SAMPLE_QUESTIONS)
+        # Obtener pregunta aleatoria del storage
+        question = await get_random_question_from_storage()
         
         # Crear mensaje con ID único y timestamp
         message = {
@@ -159,7 +175,7 @@ async def generate_batch_questions(batch_data: dict):
         messages = []
         
         for _ in range(count):
-            question = random.choice(SAMPLE_QUESTIONS)
+            question = await get_random_question_from_storage()
             message = {
                 'id': str(uuid.uuid4()),
                 'question': question,

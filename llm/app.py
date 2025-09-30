@@ -104,8 +104,8 @@ async def process_message(message_data):
 async def generate_gemini_response(question: str) -> str:
     """Generar respuesta usando Gemini"""
     try:
-        # Configurar el modelo
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        # Configurar el modelo (usar gemini-2.5-flash que debería estar disponible)
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         # Generar respuesta (usar generate_content en lugar de generate_content_async)
         response = model.generate_content(question)
