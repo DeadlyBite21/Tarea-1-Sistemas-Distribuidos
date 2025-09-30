@@ -66,15 +66,24 @@ services:
       - kafka
       - init-topics
 
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_MODELS=/root/.ollama/models
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
   llm:
     build: ./llm
     ports:
       - "8003:8003"
-    environment:
-      - GOOGLE_API_KEY=AIzaSyBC0SNLcwFXRobS_8IS20LUpmtUxMW0DEU
     depends_on:
       - kafka
       - init-topics
+      - ollama
 
   score:
     build: ./score
@@ -102,3 +111,6 @@ services:
       JVM_OPTS: "-Xms16M -Xmx48M -Xss180K -XX:-TieredCompilation -XX:+UseStringDeduplication -noverify"
     depends_on:
       - kafka
+
+volumes:
+  ollama_data:
