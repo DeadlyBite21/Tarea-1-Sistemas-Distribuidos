@@ -1,0 +1,22 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install wait-for-it script for service dependencies
+RUN apt-get update && apt-get install -y wget && \
+    wget -O /usr/local/bin/wait-for-it https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh && \
+    chmod +x /usr/local/bin/wait-for-it && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy application code
+COPY . .
+
+# Expose port
+EXPOSE 8002
+
+# Wait for Kafka and start the application
+CMD ["wait-for-it", "kafka:29092", "--timeout=60", "--", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8002"]
