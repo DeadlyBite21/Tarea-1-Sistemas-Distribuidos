@@ -17,7 +17,7 @@ kafka_consumer: Optional[AIOKafkaConsumer] = None
 kafka_producer: Optional[AIOKafkaProducer] = None
 
 # Configuración de Gemini
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'AIzaSyCQxHenBxANBZQeP0Z383JjOW5s_iJ0x_Y')
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'AIzaSyCDBGezLgA5H1Kba1ZPL19d9m4Owi_hw1I')
 genai.configure(api_key=GOOGLE_API_KEY)
 
 async def init_kafka():

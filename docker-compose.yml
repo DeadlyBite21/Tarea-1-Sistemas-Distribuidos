@@ -81,7 +81,7 @@ services:
     ports:
       - "8003:8003"
     environment:
-      - GOOGLE_API_KEY=AIzaSyCQxHenBxANBZQeP0Z383JjOW5s_iJ0x_Y
+      - GOOGLE_API_KEY=AIzaSyCDBGezLgA5H1Kba1ZPL19d9m4Owi_hw1I
     depends_on:
       - kafka
       - init-topics
