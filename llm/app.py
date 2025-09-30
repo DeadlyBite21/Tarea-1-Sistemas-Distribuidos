@@ -105,7 +105,7 @@ async def generate_gemini_response(question: str) -> str:
     """Generar respuesta usando Gemini"""
     try:
         # Configurar el modelo
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         # Generar respuesta de manera asíncrona
         loop = asyncio.get_event_loop()

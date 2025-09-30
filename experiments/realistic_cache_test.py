@@ -63,16 +63,16 @@ async def simulate_realistic_traffic(session, questions, num_requests=100):
             async with session.post(custom_url, json=payload) as response:
                 if response.status == 200:
                     result = await response.json()
-                    if i % 20 == 0:  # Log cada 20 requests
+                    if i % 500 == 0:  # Log cada 500 requests
                         print(f"  📝 Request {i+1}: {question[:50]}... (count: {question_data.get('count', 1)})")
         except Exception as e:
-            if i % 20 == 0:
+            if i % 500 == 0:
                 print(f"  ❌ Error en request {i+1}: {e}")
         
-        # Pausa entre requests (simular tráfico real)
-        await asyncio.sleep(0.05)
+        # Pausa entre requests (simular tráfico real) - más rápido para 10k requests
+        await asyncio.sleep(0.01)
 
-async def test_cache_policy_realistic(policy="LRU", cache_size=25, ttl=300, num_requests=1000):
+async def test_cache_policy_realistic(policy="LRU", cache_size=100, ttl=300, num_requests=10000):
     """Prueba una política de caché con tráfico realista"""
     
     base_url = "http://localhost"
@@ -120,7 +120,7 @@ async def test_cache_policy_realistic(policy="LRU", cache_size=25, ttl=300, num_
         
         # Obtener preguntas populares del storage
         print("🔍 Obteniendo preguntas populares del storage...")
-        popular_questions = await get_popular_questions_from_storage(session, limit=50)
+        popular_questions = await get_popular_questions_from_storage(session, limit=200)
         
         if not popular_questions:
             print("❌ No se pudieron obtener preguntas del storage")
@@ -134,7 +134,7 @@ async def test_cache_policy_realistic(policy="LRU", cache_size=25, ttl=300, num_
         
         # Esperar procesamiento
         print("⏳ Esperando procesamiento final...")
-        await asyncio.sleep(5)
+        await asyncio.sleep(15)
         
         # Estadísticas finales
         try:
