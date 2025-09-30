@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script simplificado para probar las políticas de caché básicas
+Script simplificado para probar las políticas de caché básicas con preguntas del storage
 """
 
 import asyncio
@@ -13,19 +13,24 @@ async def get_random_questions_from_storage(session, count=10):
     """Obtiene preguntas aleatorias del storage"""
     base_url = "http://localhost"
     storage_port = 8004
-    storage_url = f"{base_url}:{storage_port}/popular_questions"
+    storage_url = f"{base_url}:{storage_port}/questions"
     questions = []
     
     try:
-        # Obtener múltiples preguntas aleatorias del storage
+        # Obtener múltiples preguntas del storage
         for _ in range(count):
             async with session.get(f"{storage_url}?limit=1&random=true") as response:
                 if response.status == 200:
                     data = await response.json()
-                    if data and 'questions' in data and len(data['questions']) > 0:
-                        question_text = data['questions'][0].get('question', '').strip()
+                    # El storage devuelve un objeto con 'questions' array
+                    questions_array = data.get('questions', [])
+                    if questions_array and len(questions_array) > 0:
+                        question_text = questions_array[0].get('question', '').strip()
                         if question_text:
                             questions.append(question_text)
+                            print(f"  📖 Pregunta obtenida: {question_text[:50]}...")
+                else:
+                    print(f"  ⚠️ Storage respondió con status: {response.status}")
                 await asyncio.sleep(0.1)  # Pequeña pausa entre requests
     except Exception as e:
         print(f"⚠️ Error obteniendo preguntas del storage: {e}")
@@ -46,6 +51,7 @@ async def test_cache_policy(policy="LRU", cache_size=50, ttl=300, num_requests=1
     base_url = "http://localhost"
     cache_port = 8001
     generator_port = 8000
+    storage_port = 8004
     
     print(f"\n🧪 Probando política {policy} (tamaño={cache_size}, TTL={ttl}s)")
     
@@ -241,6 +247,32 @@ async def test_cache_sizes():
     
     return results
 
+async def test_ttl_effects():
+    """Prueba diferentes valores de TTL"""
+    print("\n⏰ Probando diferentes valores de TTL (LRU)")
+    
+    ttl_values = [30, 60, 120, 300]
+    results = {}
+    
+    for ttl in ttl_values:
+        print(f"\n⏱️ Probando TTL: {ttl}s")
+        result = await test_cache_policy("LRU", cache_size=25, ttl=ttl, num_requests=30)
+        if result:
+            results[ttl] = result
+        await asyncio.sleep(3)
+    
+    # Resumen de TTL
+    print("\n" + "="*50)
+    print("⏰ ANÁLISIS DE TTL")
+    print("="*50)
+    
+    for ttl, stats in results.items():
+        hit_rate = stats.get('hit_rate', 0)
+        evictions = stats.get('evictions', 0)
+        print(f"TTL {ttl:>3}s: Hit Rate={hit_rate:>6.1%} | Evictions={evictions:>3}")
+    
+    return results
+
 def main():
     if len(sys.argv) > 1:
         test_type = sys.argv[1]
@@ -248,10 +280,18 @@ def main():
             asyncio.run(compare_policies())
         elif test_type == "sizes":
             asyncio.run(test_cache_sizes())
+        elif test_type == "ttl":
+            asyncio.run(test_ttl_effects())
         elif test_type in ["LRU", "LFU", "FIFO"]:
             asyncio.run(test_cache_policy(test_type))
+        elif test_type == "all":
+            async def full_experiments():
+                await compare_policies()
+                await test_cache_sizes()
+                await test_ttl_effects()
+            asyncio.run(full_experiments())
         else:
-            print("Uso: python simple_cache_test.py [policies|sizes|LRU|LFU|FIFO]")
+            print("Uso: python simple_cache_test.py [policies|sizes|ttl|all|LRU|LFU|FIFO]")
     else:
         # Ejecutar prueba completa
         async def full_test():

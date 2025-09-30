@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-import aiohttp
+import google.generativeai as genai
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 kafka_consumer: Optional[AIOKafkaConsumer] = None
 kafka_producer: Optional[AIOKafkaProducer] = None
 
-# Configuración de Ollama
-OLLAMA_URL = os.getenv('OLLAMA_URL', 'http://ollama:11434')
-OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'llama3.2:3b')
+# Configuración de Gemini
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'AIzaSyBC0SNLcwFXRobS_8IS20LUpmtUxMW0DEU')
+genai.configure(api_key=GOOGLE_API_KEY)
 
 async def init_kafka():
     """Inicializar consumidor y productor de Kafka"""
@@ -82,9 +82,9 @@ async def process_message(message_data):
             logger.warning("Mensaje sin pregunta recibido")
             return
         
-        # Generar respuesta con Ollama
+        # Generar respuesta con Gemini
         logger.info(f"Procesando pregunta: {question}")
-        response = await generate_ollama_response(question)
+        response = await generate_gemini_response(question)
         
         # Preparar mensaje para el servicio de score
         answer_message = {
@@ -101,34 +101,26 @@ async def process_message(message_data):
     except Exception as e:
         logger.error(f"Error procesando mensaje: {e}")
 
-async def generate_ollama_response(question: str) -> str:
-    """Generar respuesta usando Ollama"""
+async def generate_gemini_response(question: str) -> str:
+    """Generar respuesta usando Gemini"""
     try:
-        # Preparar el payload para Ollama
-        payload = {
-            "model": OLLAMA_MODEL,
-            "prompt": question,
-            "stream": False
-        }
+        # Configurar el modelo
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"{OLLAMA_URL}/api/generate",
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=60)
-            ) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    return result.get('response', 'No se pudo generar una respuesta.')
-                else:
-                    logger.error(f"Error en Ollama API: {response.status}")
-                    return "Error al conectar con el servicio de LLM."
-                    
-    except asyncio.TimeoutError:
-        logger.error("Timeout al conectar con Ollama")
-        return "Timeout al procesar la pregunta."
+        # Generar respuesta de manera asíncrona
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None, 
+            lambda: model.generate_content(question)
+        )
+        
+        if response and response.text:
+            return response.text.strip()
+        else:
+            return "Lo siento, no pude generar una respuesta para esa pregunta."
+            
     except Exception as e:
-        logger.error(f"Error generando respuesta con Ollama: {e}")
+        logger.error(f"Error generando respuesta con Gemini: {e}")
         return f"Error al procesar la pregunta: {str(e)}"
 
 @asynccontextmanager
@@ -143,7 +135,7 @@ async def lifespan(app: FastAPI):
 # Crear aplicación FastAPI
 app = FastAPI(
     title="LLM Service",
-    description="Servicio de generación de respuestas usando Ollama",
+    description="Servicio de generación de respuestas usando Gemini",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -160,7 +152,7 @@ async def health_check():
 @app.get("/")
 async def root():
     """Endpoint raíz"""
-    return {"message": "LLM Service - Powered by Ollama"}
+    return {"message": "LLM Service - Powered by Gemini"}
 
 if __name__ == "__main__":
     import uvicorn

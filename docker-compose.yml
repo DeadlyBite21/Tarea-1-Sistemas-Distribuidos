@@ -80,10 +80,11 @@ services:
     build: ./llm
     ports:
       - "8003:8003"
+    environment:
+      - GOOGLE_API_KEY=AIzaSyBC0SNLcwFXRobS_8IS20LUpmtUxMW0DEU
     depends_on:
       - kafka
       - init-topics
-      - ollama
 
   score:
     build: ./score

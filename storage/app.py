@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 kafka_consumer: Optional[AIOKafkaConsumer] = None
 DB = "data.db"
 DATASET = "train.csv"
+used_question_ids = set()  # Para evitar repetir preguntas
 
 def init_db():
     """Inicializar base de datos"""
@@ -275,20 +276,54 @@ async def get_random_question():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/questions")
-async def get_questions(limit: int = 100, offset: int = 0, random: bool = False):
+async def get_questions(limit: int = 100, offset: int = 0, random: bool = False, reset_history: bool = False):
     """Obtener múltiples preguntas de la base de datos"""
+    global used_question_ids
+    
+    # Resetear historial si se solicita
+    if reset_history:
+        used_question_ids.clear()
+    
     try:
         conn = sqlite3.connect(DB)
         c = conn.cursor()
         
         if random:
-            # Obtener preguntas aleatorias
-            c.execute("SELECT id, question, best_answer FROM qa WHERE question IS NOT NULL AND question != '' ORDER BY RANDOM() LIMIT ?", (limit,))
+            # Para preguntas aleatorias, excluir las ya usadas
+            if used_question_ids:
+                placeholders = ','.join(['?' for _ in used_question_ids])
+                query = f"""
+                    SELECT id, question, best_answer FROM qa 
+                    WHERE question IS NOT NULL AND question != '' 
+                    AND id NOT IN ({placeholders})
+                    ORDER BY RANDOM() LIMIT ?
+                """
+                params = list(used_question_ids) + [limit]
+            else:
+                query = """
+                    SELECT id, question, best_answer FROM qa 
+                    WHERE question IS NOT NULL AND question != '' 
+                    ORDER BY RANDOM() LIMIT ?
+                """
+                params = [limit]
+            
+            c.execute(query, params)
+            rows = c.fetchall()
+            
+            # Si no hay suficientes preguntas nuevas, resetear y obtener más
+            if len(rows) < limit and used_question_ids:
+                used_question_ids.clear()
+                c.execute("""
+                    SELECT id, question, best_answer FROM qa 
+                    WHERE question IS NOT NULL AND question != '' 
+                    ORDER BY RANDOM() LIMIT ?
+                """, (limit,))
+                rows = c.fetchall()
         else:
-            # Obtener preguntas con paginación
+            # Obtener preguntas con paginación (sin filtro de repetición)
             c.execute("SELECT id, question, best_answer FROM qa WHERE question IS NOT NULL AND question != '' LIMIT ? OFFSET ?", (limit, offset))
+            rows = c.fetchall()
         
-        rows = c.fetchall()
         conn.close()
         
         questions = []
@@ -298,34 +333,95 @@ async def get_questions(limit: int = 100, offset: int = 0, random: bool = False)
                 "question": row[1],
                 "best_answer": row[2]
             })
+            # Agregar al historial si es aleatorio
+            if random:
+                used_question_ids.add(row[0])
         
         return {
             "questions": questions,
             "count": len(questions),
             "limit": limit,
             "offset": offset,
-            "random": random
+            "random": random,
+            "used_questions_count": len(used_question_ids) if random else 0
         }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/reset_history")
+async def reset_question_history():
+    """Resetear el historial de preguntas usadas"""
+    global used_question_ids
+    count = len(used_question_ids)
+    used_question_ids.clear()
+    return {
+        "message": "Historial de preguntas reseteado",
+        "previous_count": count,
+        "current_count": len(used_question_ids)
+    }
+
 @app.get("/popular_questions")
-async def get_popular_questions(limit: int = 50):
+async def get_popular_questions(limit: int = 50, random: bool = False, reset_history: bool = False):
     """Obtener preguntas más frecuentes (si han sido procesadas múltiples veces)"""
+    global used_question_ids
+    
+    # Resetear historial si se solicita
+    if reset_history:
+        used_question_ids.clear()
+    
     try:
         conn = sqlite3.connect(DB)
         c = conn.cursor()
         
-        c.execute("""
-            SELECT id, question, best_answer, count, score 
-            FROM qa 
-            WHERE question IS NOT NULL AND question != '' 
-            ORDER BY count DESC, score DESC 
-            LIMIT ?
-        """, (limit,))
+        if random:
+            # Para preguntas aleatorias, excluir las ya usadas
+            if used_question_ids:
+                placeholders = ','.join(['?' for _ in used_question_ids])
+                query = f"""
+                    SELECT id, question, best_answer, count, score 
+                    FROM qa 
+                    WHERE question IS NOT NULL AND question != '' 
+                    AND id NOT IN ({placeholders})
+                    ORDER BY RANDOM() 
+                    LIMIT ?
+                """
+                params = list(used_question_ids) + [limit]
+            else:
+                query = """
+                    SELECT id, question, best_answer, count, score 
+                    FROM qa 
+                    WHERE question IS NOT NULL AND question != '' 
+                    ORDER BY RANDOM() 
+                    LIMIT ?
+                """
+                params = [limit]
+            
+            c.execute(query, params)
+            rows = c.fetchall()
+            
+            # Si no hay suficientes preguntas nuevas, resetear y obtener más
+            if len(rows) < limit and used_question_ids:
+                used_question_ids.clear()
+                c.execute("""
+                    SELECT id, question, best_answer, count, score 
+                    FROM qa 
+                    WHERE question IS NOT NULL AND question != '' 
+                    ORDER BY RANDOM() 
+                    LIMIT ?
+                """, (limit,))
+                rows = c.fetchall()
+        else:
+            # Ordenar por popularidad (count y score)
+            c.execute("""
+                SELECT id, question, best_answer, count, score 
+                FROM qa 
+                WHERE question IS NOT NULL AND question != '' 
+                ORDER BY count DESC, score DESC 
+                LIMIT ?
+            """, (limit,))
+            rows = c.fetchall()
         
-        rows = c.fetchall()
         conn.close()
         
         questions = []
@@ -337,11 +433,15 @@ async def get_popular_questions(limit: int = 50):
                 "count": row[3] or 1,
                 "score": row[4]
             })
+            # Agregar al historial si es aleatorio
+            if random:
+                used_question_ids.add(row[0])
         
         return {
             "questions": questions,
             "count": len(questions),
-            "criteria": "popularity"
+            "criteria": "random" if random else "popularity",
+            "used_questions_count": len(used_question_ids) if random else 0
         }
         
     except Exception as e:
