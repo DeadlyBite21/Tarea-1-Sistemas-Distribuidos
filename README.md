@@ -119,6 +119,169 @@ python3 analysis/policy_evaluator.py
 
 Ver detalles completos en [`analysis/README.md`](analysis/README.md).
 
+## 📈 Visualización y Gráficos
+
+El proyecto incluye un sistema completo de visualización con múltiples tipos de gráficos para analizar el rendimiento del cache y los servicios.
+
+### 🚀 Coordinador de Visualización Principal
+
+El coordinador maestro te permite generar dashboards completos y gestionar todas las visualizaciones:
+
+```bash
+# Navegar al directorio de experimentos
+cd experiments
+
+# Activar entorno virtual (si aplica)
+source ../.venv/bin/activate
+
+# Ver comandos disponibles
+python3 visualization_coordinator.py
+
+# Generar dashboard HTML completo
+python3 visualization_coordinator.py dashboard
+
+# Abrir dashboard en navegador
+python3 visualization_coordinator.py view
+
+# Listar todos los gráficos disponibles
+python3 visualization_coordinator.py list
+
+# Generar todos los gráficos individuales
+python3 visualization_coordinator.py generate
+```
+
+### 📊 Gráficos Disponibles
+
+#### 1. **Gráficos Temporales - Evolución del Cache**
+```bash
+# Generar gráficos de hits vs tiempo y hits vs consultas
+python3 temporal_graphs.py
+```
+**Archivos generados:**
+- `plots/hits_over_time.png` - Evolución de hits en el tiempo (16+ horas)
+- `plots/hits_vs_queries.png` - Relación hits vs número de consultas
+- `plots/detailed_timeline.png` - Timeline detallado con fases del experimento
+- `plots/performance_dashboard.png` - Dashboard completo de rendimiento
+
+#### 2. **Análisis de Experimentos LFU**
+```bash
+# Análisis detallado del cache LFU
+python3 quick_graphs.py
+```
+**Archivos generados:**
+- `plots/lfu_detailed_analysis.png` - Análisis completo del experimento LFU
+- `plots/system_overview.png` - Vista general de la arquitectura
+
+#### 3. **Análisis de Servicios Docker**
+```bash
+# Análisis de logs y rendimiento de servicios
+python3 docker_analyzer.py
+```
+**Archivos generados:**
+- `plots/docker_services_analysis.png` - Salud y rendimiento de los 5 microservicios
+
+#### 4. **Análisis de Logs del Sistema**
+```bash
+# Análisis de logs de Docker Compose
+python3 log_analyzer.py
+```
+**Archivos generados:**
+- `plots/system_logs_analysis.png` - Análisis temporal de logs del sistema
+
+### 📂 Estructura de Salida
+
+Todos los gráficos se guardan en `experiments/plots/` con la siguiente estructura:
+
+```
+plots/
+├── dashboard.html                    # Dashboard web interactivo
+├── cache_analysis_report.html       # Reporte HTML del cache
+├── hits_over_time.png               # 📈 Hits vs Tiempo
+├── hits_vs_queries.png              # 📊 Hits vs Consultas  
+├── detailed_timeline.png            # 🕒 Timeline detallado
+├── performance_dashboard.png        # 🚀 Dashboard de rendimiento
+├── lfu_detailed_analysis.png        # 🎯 Análisis LFU
+├── system_overview.png              # 🏗️ Arquitectura del sistema
+├── docker_services_analysis.png     # 🐳 Salud de servicios
+└── system_logs_analysis.png         # 📝 Análisis de logs
+```
+
+### 🎨 Tipos de Visualizaciones
+
+#### **Gráficos Temporales**
+- **Hits Acumulados vs Tiempo**: Crecimiento de hits durante 16+ horas
+- **Hit Rate Evolution**: Evolución del porcentaje de aciertos
+- **Velocidad de Hits**: Hits por hora y aceleración del cache
+- **Fases del Experimento**: Calentamiento → Crecimiento → Estabilización
+
+#### **Análisis de Consultas**  
+- **Hits vs Consultas**: Scatter plot con codificación de colores por hit rate
+- **Eficiencia del Cache**: Mejora del hit rate conforme aumentan las consultas
+- **Zonas de Rendimiento**: Clasificación bajo/medio/alto rendimiento
+
+#### **Dashboard de Rendimiento**
+- **Timeline Principal**: Evolución completa con múltiples métricas
+- **Distribución Hits/Misses**: Pie chart de distribución
+- **Métricas Clave**: Resumen estadístico completo
+- **Análisis por Fases**: Rendimiento en etapas del experimento
+- **Benchmarks**: Comparación con algoritmos teóricos
+
+#### **Servicios y Arquitectura**
+- **Health Score**: Salud de los 5 microservicios
+- **Request Flow**: Flujo de peticiones entre servicios
+- **Error Rates**: Tasas de error por servicio
+- **Activity Levels**: Niveles de actividad y carga
+
+### 🛠️ Requisitos para Gráficos
+
+```bash
+# Instalar dependencias de visualización
+pip install matplotlib seaborn pandas numpy
+
+# O usar el entorno virtual del proyecto
+source .venv/bin/activate  # Ya incluye todas las dependencias
+```
+
+### 🎯 Casos de Uso para Gráficos
+
+#### **Análisis de Rendimiento**
+- Evaluar efectividad del cache LFU (2.62% hit rate logrado)
+- Identificar patrones temporales en el uso del cache
+- Comparar con benchmarks teóricos y otros algoritmos
+
+#### **Monitoreo de Sistema**
+- Verificar salud de microservicios en tiempo real
+- Analizar flujo de datos entre servicios
+- Detectar cuellos de botella o problemas de rendimiento
+
+#### **Reportes y Presentaciones**
+- Dashboard HTML para demostraciones
+- Gráficos de alta calidad para documentación
+- Análisis visual para toma de decisiones
+
+### 🚀 Flujo Recomendado
+
+```bash
+# 1. Ejecutar experimento LFU (si no está hecho)
+cd experiments
+python3 coordinator.py lfu
+
+# 2. Generar todos los gráficos
+python3 visualization_coordinator.py generate
+
+# 3. Crear dashboard completo
+python3 visualization_coordinator.py dashboard
+
+# 4. Abrir en navegador para visualización
+python3 visualization_coordinator.py view
+```
+
+El sistema genera automáticamente **gráficos de alta calidad** con:
+- ✅ **Datos reales** del experimento LFU
+- ✅ **Simulación temporal** realista (16+ horas)
+- ✅ **Múltiples perspectivas** (tiempo, consultas, rendimiento)
+- ✅ **Formato profesional** listo para presentaciones
+
 ---
 
 ## 🧪 Testing Integral

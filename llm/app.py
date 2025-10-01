@@ -18,7 +18,7 @@ kafka_producer: Optional[AIOKafkaProducer] = None
 
 # Configuración de Gemini
 
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'AIzaSyD65cHkQImieONNdB2BTs1psCSIHsVnudI')
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'AIzaSyDF4Z0pvyfpD3_mUfzaNyJs79rbmivfBAE')
 
 
 genai.configure(api_key=GOOGLE_API_KEY)
