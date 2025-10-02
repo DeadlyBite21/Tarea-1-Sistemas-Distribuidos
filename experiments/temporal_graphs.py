@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 📈 GENERADOR DE GRÁFICOS TEMPORALES
 Crea gráficos específicos de hits/tiempo y hits/consultas
+=======
+📈 GENERADOR DE GRÁFICOS TEMPORALES (FIFO)
+Crea gráficos específicos de hits/tiempo y hits/consultas para FIFO
+>>>>>>> Stashed changes
 =======
 📈 GENERADOR DE GRÁFICOS TEMPORALES (FIFO)
 Crea gráficos específicos de hits/tiempo y hits/consultas para FIFO
@@ -16,6 +21,7 @@ import os
 from datetime import datetime, timedelta
 import pandas as pd
 
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 def simulate_cache_evolution(total_requests=10000, hit_rate_final=2.62):
     """Simula la evolución del cache durante el experimento"""
@@ -58,6 +64,8 @@ def simulate_cache_evolution(total_requests=10000, hit_rate_final=2.62):
         cumulative_requests = requests_at_time
         
 =======
+=======
+>>>>>>> Stashed changes
 def simulate_cache_evolution(total_requests=10000, hit_rate_final=2.0):
     """Simula la evolución del cache durante el experimento (FIFO)
     hit_rate_final se expresa en PORCENTAJE (ej: 2.0 == 2%)
@@ -96,6 +104,9 @@ def simulate_cache_evolution(total_requests=10000, hit_rate_final=2.0):
 
         cumulative_requests = requests_at_time
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
         evolution_data.append({
             'minute': minute,
@@ -103,6 +114,7 @@ def simulate_cache_evolution(total_requests=10000, hit_rate_final=2.0):
             'cumulative_requests': int(cumulative_requests),
             'cumulative_hits': int(cumulative_hits),
             'current_hit_rate': current_hit_rate,
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
             'instant_hit_rate': current_hit_rate  # Para este punto específico
         })
@@ -233,6 +245,8 @@ def create_hits_vs_queries_plot(evolution_data, output_dir='plots'):
     
     # Anotaciones importantes
 =======
+=======
+>>>>>>> Stashed changes
             'instant_hit_rate': current_hit_rate
         })
 
@@ -342,11 +356,15 @@ def create_hits_vs_queries_plot(evolution_data, output_dir='plots'):
     ax2.axhspan(12, 100, alpha=0.2, color='green', label='Alto (12%+)')
     ax2.legend(loc='upper left')
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     if requests and hit_rates:
         final_requests = requests[-1]
         final_rate = hit_rates[-1]
         ax2.annotate(f'Final: {final_rate:.2f}% con {final_requests:,} consultas',
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
                     xy=(final_requests, final_rate),
                     xytext=(-100, 20), textcoords='offset points',
@@ -368,6 +386,8 @@ def create_detailed_timeline_plot(evolution_data, output_dir='plots'):
     
     # Extraer datos
 =======
+=======
+>>>>>>> Stashed changes
                      xy=(final_requests, final_rate),
                      xytext=(-100, 20), textcoords='offset points',
                      bbox=dict(boxstyle='round,pad=0.5', facecolor='lightblue', alpha=0.8),
@@ -383,11 +403,15 @@ def create_detailed_timeline_plot(evolution_data, output_dir='plots'):
     """Crea timeline detallado con múltiples métricas (FIFO)"""
     os.makedirs(output_dir, exist_ok=True)
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     minutes = [d['minute'] for d in evolution_data]
     requests = [d['cumulative_requests'] for d in evolution_data]
     hits = [d['cumulative_hits'] for d in evolution_data]
     hit_rates = [d['current_hit_rate'] for d in evolution_data]
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
     
     # Crear figura con múltiples ejes Y
@@ -400,6 +424,8 @@ def create_detailed_timeline_plot(evolution_data, output_dir='plots'):
     ax1.set_ylabel('Consultas y Hits Acumulados', color=color1)
     
 =======
+=======
+>>>>>>> Stashed changes
 
     fig, ax1 = plt.subplots(figsize=(15, 10))
     fig.suptitle('🕒 Timeline Detallado del Experimento FIFO', fontsize=16, fontweight='bold')
@@ -408,14 +434,22 @@ def create_detailed_timeline_plot(evolution_data, output_dir='plots'):
     color1 = '#3498db'
     ax1.set_xlabel('Tiempo (minutos)')
     ax1.set_ylabel('Consultas y Hits Acumulados', color=color1)
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     line1 = ax1.plot(minutes, requests, color=color1, linewidth=3, label='Total Consultas', marker='o')
     line2 = ax1.plot(minutes, hits, color='#2ecc71', linewidth=3, label='Cache Hits', marker='s')
     ax1.tick_params(axis='y', labelcolor=color1)
     ax1.grid(True, alpha=0.3)
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     
     # Eje Y derecho: Hit Rate
+=======
+
+    # Eje derecho: hit rate
+>>>>>>> Stashed changes
 =======
 
     # Eje derecho: hit rate
@@ -425,6 +459,7 @@ def create_detailed_timeline_plot(evolution_data, output_dir='plots'):
     ax2.set_ylabel('Hit Rate (%)', color=color2)
     line3 = ax2.plot(minutes, hit_rates, color=color2, linewidth=3, label='Hit Rate (%)', marker='^')
     ax2.tick_params(axis='y', labelcolor=color2)
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
     
     # Combinar leyendas
@@ -482,6 +517,8 @@ def create_performance_dashboard(evolution_data, lfu_results, output_dir='plots'
     
     # Extraer datos
 =======
+=======
+>>>>>>> Stashed changes
 
     # Leyendas combinadas
     lines = line1 + line2 + line3
@@ -525,12 +562,16 @@ def create_performance_dashboard(evolution_data, fifo_results, output_dir='plots
 
     gs = fig.add_gridspec(4, 4, hspace=0.3, wspace=0.3)
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     minutes = [d['minute'] for d in evolution_data]
     hours = [m/60 for m in minutes]
     requests = [d['cumulative_requests'] for d in evolution_data]
     hits = [d['cumulative_hits'] for d in evolution_data]
     hit_rates = [d['current_hit_rate'] for d in evolution_data]
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
     
     # 1. Gráfico principal: Timeline completo (2x2)
@@ -543,6 +584,8 @@ def create_performance_dashboard(evolution_data, fifo_results, output_dir='plots
     
     ax1.set_title('📈 Evolución Temporal Completa', fontsize=14, fontweight='bold')
 =======
+=======
+>>>>>>> Stashed changes
 
     # (1) Timeline completo
     ax1 = fig.add_subplot(gs[0:2, 0:2])
@@ -551,11 +594,15 @@ def create_performance_dashboard(evolution_data, fifo_results, output_dir='plots
     line2 = ax1.plot(hours, hits, color='#2ecc71', linewidth=3, label='Cache Hits')
     line3 = ax1_twin.plot(hours, hit_rates, color='#e74c3c', linewidth=3, label='Hit Rate (%)')
     ax1.set_title('📈 Evolución Temporal Completa (FIFO)', fontsize=14, fontweight='bold')
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     ax1.set_xlabel('Tiempo (horas)')
     ax1.set_ylabel('Consultas y Hits')
     ax1_twin.set_ylabel('Hit Rate (%)', color='#e74c3c')
     ax1.grid(True, alpha=0.3)
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
     
     # Combinar leyendas
@@ -603,6 +650,8 @@ def create_performance_dashboard(evolution_data, fifo_results, output_dir='plots
     
     # 5. Eficiencia acumulada (2x1)  
 =======
+=======
+>>>>>>> Stashed changes
     lines = line1 + line2 + line3
     labels = [l.get_label() for l in lines]
     ax1.legend(lines, labels, loc='upper left')
@@ -641,11 +690,15 @@ def create_performance_dashboard(evolution_data, fifo_results, output_dir='plots
         ax4.set_ylabel('Hits/Período')
 
     # (5) Eficiencia acumulada
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     ax5 = fig.add_subplot(gs[1, 3])
     efficiency = [(h/r)*100 if r > 0 else 0 for h, r in zip(hits, requests)]
     ax5.plot(range(len(efficiency)), efficiency, color='#9b59b6', linewidth=2, marker='o')
     ax5.fill_between(range(len(efficiency)), efficiency, alpha=0.3, color='#9b59b6')
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
     ax5.set_title('📈 Eficiencia\nAcumulada', fontsize=12, fontweight='bold')
     ax5.set_ylabel('Eficiencia (%)')
@@ -656,23 +709,34 @@ def create_performance_dashboard(evolution_data, fifo_results, output_dir='plots
     
     # Dividir en fases
 =======
+=======
+>>>>>>> Stashed changes
     ax5.set_title('📈 Eficiencia Acumulada (FIFO)', fontsize=12, fontweight='bold')
     ax5.set_ylabel('Eficiencia (%)')
     ax5.grid(True, alpha=0.3)
 
     # (6) Fases
     ax6 = fig.add_subplot(gs[2:4, 0:2])
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     total_points = len(requests)
     phase1_end = total_points // 4
     phase2_end = total_points // 2
     phase3_end = 3 * total_points // 4
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     
     phases = ['Inicio\n(0-25%)', 'Crecimiento\n(25-50%)', 'Desarrollo\n(50-75%)', 'Madurez\n(75-100%)']
     phase_hits = []
     phase_rates = []
     
+=======
+    phases = ['Inicio\n(0-25%)', 'Crecimiento\n(25-50%)', 'Desarrollo\n(50-75%)', 'Madurez\n(75-100%)']
+    phase_hits = []
+    phase_rates = []
+>>>>>>> Stashed changes
 =======
     phases = ['Inicio\n(0-25%)', 'Crecimiento\n(25-50%)', 'Desarrollo\n(50-75%)', 'Madurez\n(75-100%)']
     phase_hits = []
@@ -692,6 +756,7 @@ def create_performance_dashboard(evolution_data, fifo_results, output_dir='plots
             hit_rates[-1]
         ]
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     
     x = np.arange(len(phases))
     width = 0.35
@@ -702,18 +767,24 @@ def create_performance_dashboard(evolution_data, fifo_results, output_dir='plots
     
     ax6.set_title('📊 Análisis por Fases del Experimento', fontsize=14, fontweight='bold')
 =======
+=======
+>>>>>>> Stashed changes
     x = np.arange(len(phases))
     width = 0.35
     bars1 = ax6.bar(x - width/2, phase_hits, width, label='Hits Acumulados', color='#2ecc71', alpha=0.8)
     ax6_twin = ax6.twinx()
     bars2 = ax6_twin.bar(x + width/2, phase_rates, width, label='Hit Rate (%)', color='#e74c3c', alpha=0.8)
     ax6.set_title('📊 Análisis por Fases del Experimento (FIFO)', fontsize=14, fontweight='bold')
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     ax6.set_xlabel('Fases del Experimento')
     ax6.set_ylabel('Hits Acumulados', color='#2ecc71')
     ax6_twin.set_ylabel('Hit Rate (%)', color='#e74c3c')
     ax6.set_xticks(x)
     ax6.set_xticklabels(phases)
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
     
     # Agregar valores en las barras
@@ -735,6 +806,8 @@ def create_performance_dashboard(evolution_data, fifo_results, output_dir='plots
     
     # Comparar con teorías
 =======
+=======
+>>>>>>> Stashed changes
     for bar, value in zip(bars1, phase_hits):
         ax6.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(phase_hits or [1])*0.01,
                  f'{int(value)}', ha='center', va='bottom', fontweight='bold')
@@ -747,11 +820,15 @@ def create_performance_dashboard(evolution_data, fifo_results, output_dir='plots
 
     # (7) Comparación y benchmarks
     ax7 = fig.add_subplot(gs[2:4, 2:4])
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     theoretical_data = {
         'Sin Cache': 0,
         'Cache Básico': 5,
         'LRU Típico': 12,
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
         'LFU (Real)': hit_rates[-1] if hit_rates else 0,
         'LFU Óptimo': 25
@@ -826,6 +903,8 @@ def main():
 if __name__ == "__main__":
     main()
 =======
+=======
+>>>>>>> Stashed changes
         'FIFO (Real)': hit_rates[-1] if hit_rates else 0,
         'FIFO Óptimo': 10
     }
@@ -887,4 +966,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes

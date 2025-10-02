@@ -82,7 +82,11 @@ services:
       - "8003:8003"
     environment:
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       - GOOGLE_API_KEY=AIzaSyDF4Z0pvyfpD3_mUfzaNyJs79rbmivfBAE
+=======
+      - GOOGLE_API_KEY=AIzaSyA1DA46XaHHjVUisfYPStBZM-XFEj1WkuE
+>>>>>>> Stashed changes
 =======
       - GOOGLE_API_KEY=AIzaSyA1DA46XaHHjVUisfYPStBZM-XFEj1WkuE
 >>>>>>> Stashed changes
