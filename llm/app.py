@@ -16,9 +16,13 @@ kafka_producer: Optional[AIOKafkaProducer] = None
 
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # Configuración de Gemini
 
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'AIzaSyDF4Z0pvyfpD3_mUfzaNyJs79rbmivfBAE')
+=======
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'AIzaSyA1DA46XaHHjVUisfYPStBZM-XFEj1WkuE')
+>>>>>>> Stashed changes
 =======
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'AIzaSyA1DA46XaHHjVUisfYPStBZM-XFEj1WkuE')
 >>>>>>> Stashed changes
