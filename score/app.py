@@ -7,11 +7,9 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
-# Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Variables globales para Kafka
 kafka_consumer: Optional[AIOKafkaConsumer] = None
 kafka_producer: Optional[AIOKafkaProducer] = None
 
@@ -20,7 +18,6 @@ async def init_kafka():
     global kafka_consumer, kafka_producer
     
     try:
-        # Configurar consumidor para respuestas del LLM
         kafka_consumer = AIOKafkaConsumer(
             'questions.answers',
             bootstrap_servers='kafka:29092',
@@ -29,7 +26,6 @@ async def init_kafka():
             value_deserializer=lambda m: json.loads(m.decode('utf-8'))
         )
         
-        # Configurar productor para enviar a storage
         kafka_producer = AIOKafkaProducer(
             bootstrap_servers='kafka:29092',
             value_serializer=lambda v: json.dumps(v).encode('utf-8')
@@ -40,7 +36,6 @@ async def init_kafka():
         
         logger.info("Kafka consumer y producer iniciados correctamente")
         
-        # Iniciar el loop de consumo
         asyncio.create_task(consume_loop())
         
     except Exception as e:
@@ -75,10 +70,8 @@ async def process_message(message_data):
         message_id = message_data.get('id', '')
         timestamp = message_data.get('timestamp', '')
         
-        # Calcular score simple basado en la longitud de la respuesta
         score = calculate_score(question, answer)
         
-        # Preparar mensaje para storage
         storage_message = {
             'id': message_id,
             'question': question,
@@ -87,7 +80,6 @@ async def process_message(message_data):
             'timestamp': timestamp
         }
         
-        # Enviar a storage
         await kafka_producer.send('storage.persist', storage_message)
         logger.info(f"Mensaje enviado a storage con score: {score}")
         
@@ -97,48 +89,39 @@ async def process_message(message_data):
 def calculate_score(question: str, answer: str) -> float:
     """Calcular un score simple para la respuesta"""
     try:
-        # Score básico basado en varios factores
         score = 0.0
-        
-        # Factor 1: Longitud de la respuesta (respuestas muy cortas o muy largas penalizan)
+
         answer_length = len(answer.split())
         if 10 <= answer_length <= 200:
             score += 0.4
         elif 5 <= answer_length < 10 or 200 < answer_length <= 300:
             score += 0.2
         
-        # Factor 2: Presencia de palabras clave de la pregunta en la respuesta
         question_words = set(question.lower().split())
         answer_words = set(answer.lower().split())
         relevance = len(question_words.intersection(answer_words)) / max(len(question_words), 1)
         score += relevance * 0.3
-        
-        # Factor 3: Estructura de la respuesta (presencia de puntuación)
+
         if any(punct in answer for punct in ['.', '!', '?']):
             score += 0.2
-        
-        # Factor 4: No contiene mensajes de error
+
         error_indicators = ['error', 'lo siento', 'no pude', 'disculpe']
         if not any(indicator in answer.lower() for indicator in error_indicators):
             score += 0.1
-        
-        # Normalizar score entre 0 y 1
+
         return min(1.0, max(0.0, score))
         
     except Exception as e:
         logger.error(f"Error calculando score: {e}")
-        return 0.5  # Score neutral en caso de error
+        return 0.5  
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Gestión del ciclo de vida de la aplicación"""
-    # Startup
     await init_kafka()
     yield
-    # Shutdown
     await close_kafka()
 
-# Crear aplicación FastAPI
 app = FastAPI(
     title="Score Service",
     description="Servicio de evaluación y scoring de respuestas",

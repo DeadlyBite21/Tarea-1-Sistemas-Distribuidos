@@ -81,7 +81,20 @@ services:
     ports:
       - "8003:8003"
     environment:
-      - GOOGLE_API_KEY=AIzaSyCDBGezLgA5H1Kba1ZPL19d9m4Owi_hw1I
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+      - GOOGLE_API_KEY=AIzaSyDF4Z0pvyfpD3_mUfzaNyJs79rbmivfBAE
+=======
+      - GOOGLE_API_KEY=AIzaSyA1DA46XaHHjVUisfYPStBZM-XFEj1WkuE
+>>>>>>> Stashed changes
+=======
+      - GOOGLE_API_KEY=AIzaSyA1DA46XaHHjVUisfYPStBZM-XFEj1WkuE
+>>>>>>> Stashed changes
+=======
+      - GOOGLE_API_KEY=AIzaSyA1DA46XaHHjVUisfYPStBZM-XFEj1WkuE
+>>>>>>> Stashed changes
+
     depends_on:
       - kafka
       - init-topics

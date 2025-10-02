@@ -10,14 +10,13 @@ from contextlib import asynccontextmanager
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 import threading
 
-# Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class CacheConfig(BaseModel):
-    policy: str = "LRU"  # LRU, LFU, FIFO
+    policy: str = "LRU"  
     max_size: int = 100
-    ttl: int = 300  # TTL en segundos
+    ttl: int = 300  
 
 class CacheStats(BaseModel):
     total_requests: int = 0
@@ -52,18 +51,16 @@ class SmartCache:
         self.max_size = max_size
         self.ttl = ttl
         
-        # Diferentes estructuras según la política
         if policy == "LRU":
             self.cache = OrderedDict()
         else:
             self.cache = {}
         
-        self.entries = {}  # key -> CacheEntry
-        self.access_times = {}  # Para LRU
-        self.access_counts = defaultdict(int)  # Para LFU
-        self.insertion_order = []  # Para FIFO
+        self.entries = {}  
+        self.access_times = {} 
+        self.access_counts = defaultdict(int)  
+        self.insertion_order = []  
         
-        # Estadísticas
         self.stats = CacheStats()
         self.response_times = []
         self.lock = threading.RLock()
@@ -101,12 +98,10 @@ class SmartCache:
         self.stats.evictions += 1
         
         if self.policy == "LRU":
-            # Eliminar el menos recientemente usado
             key = next(iter(self.cache))
             self._remove_key(key)
         
         elif self.policy == "LFU":
-            # Eliminar el menos frecuentemente usado
             min_count = min(self.access_counts.values())
             lfu_key = None
             for key, count in self.access_counts.items():
@@ -117,7 +112,6 @@ class SmartCache:
                 self._remove_key(lfu_key)
         
         elif self.policy == "FIFO":
-            # Eliminar el primero en entrar
             if self.insertion_order:
                 key = self.insertion_order.pop(0)
                 self._remove_key(key)
@@ -127,8 +121,7 @@ class SmartCache:
         with self.lock:
             start_time = time.time()
             self.stats.total_requests += 1
-            
-            # Limpiar entradas expiradas
+
             self._cleanup_expired()
             
             if key in self.cache and key in self.entries:
@@ -136,12 +129,10 @@ class SmartCache:
                 if not entry.is_expired():
                     entry.access()
                     self.stats.cache_hits += 1
-                    
-                    # Actualizar para LRU
+
                     if self.policy == "LRU":
                         self.cache.move_to_end(key)
-                    
-                    # Actualizar contadores para LFU
+
                     if self.policy == "LFU":
                         self.access_counts[key] += 1
                     
@@ -151,7 +142,7 @@ class SmartCache:
                     
                     return entry.value
                 else:
-                    # Entrada expirada
+
                     self._remove_key(key)
             
             self.stats.cache_misses += 1
@@ -164,21 +155,19 @@ class SmartCache:
     def put(self, key, value):
         """Almacenar valor en el cache"""
         with self.lock:
-            # Limpiar entradas expiradas
+
             self._cleanup_expired()
             
-            # Si la clave ya existe, actualizar
+
             if key in self.cache:
                 self.entries[key] = CacheEntry(value, self.ttl)
                 if self.policy == "LRU":
                     self.cache.move_to_end(key)
                 return
             
-            # Si el cache está lleno, evictar
             while len(self.cache) >= self.max_size:
                 self._evict_entry()
-            
-            # Agregar nueva entrada
+
             self.cache[key] = value
             self.entries[key] = CacheEntry(value, self.ttl)
             
@@ -192,7 +181,7 @@ class SmartCache:
     def _update_avg_response_time(self):
         """Actualizar tiempo de respuesta promedio"""
         if self.response_times:
-            # Mantener solo los últimos 1000 tiempos para el promedio
+
             if len(self.response_times) > 1000:
                 self.response_times = self.response_times[-1000:]
             self.stats.avg_response_time = sum(self.response_times) / len(self.response_times)
@@ -225,8 +214,7 @@ class SmartCache:
             self.policy = policy
             self.max_size = max_size
             self.ttl = ttl
-            
-            # Recrear estructura según nueva política
+
             if policy == "LRU":
                 new_cache = OrderedDict()
                 for key, value in self.cache.items():
@@ -236,7 +224,6 @@ class SmartCache:
                 if isinstance(self.cache, OrderedDict):
                     self.cache = dict(self.cache)
 
-# Variables globales
 kafka_consumer: Optional[AIOKafkaConsumer] = None
 kafka_producer: Optional[AIOKafkaProducer] = None
 smart_cache = SmartCache()
@@ -246,7 +233,6 @@ async def init_kafka():
     global kafka_consumer, kafka_producer
     
     try:
-        # Configurar consumidor para requests del generator
         kafka_consumer = AIOKafkaConsumer(
             'questions.requests',
             bootstrap_servers='kafka:29092',
@@ -254,8 +240,7 @@ async def init_kafka():
             group_id='cache_group',
             value_deserializer=lambda m: json.loads(m.decode('utf-8'))
         )
-        
-        # Configurar productor para enviar al LLM
+
         kafka_producer = AIOKafkaProducer(
             bootstrap_servers='kafka:29092',
             value_serializer=lambda v: json.dumps(v).encode('utf-8')
@@ -266,7 +251,6 @@ async def init_kafka():
         
         logger.info("Kafka consumer y producer iniciados correctamente")
         
-        # Iniciar el loop de consumo
         asyncio.create_task(consume_loop())
         
     except Exception as e:
@@ -303,14 +287,11 @@ async def process_message(message_data):
         if not question:
             logger.warning("Mensaje sin pregunta recibido")
             return
-        
-        # Verificar si la pregunta está en cache
+
         cached_answer = smart_cache.get(question)
         
         if cached_answer is not None:
             logger.info(f"Respuesta encontrada en cache para: {question[:50]}...")
-            
-            # Preparar mensaje con respuesta desde cache
             cache_response = {
                 'id': message_id,
                 'question': question,
@@ -319,14 +300,12 @@ async def process_message(message_data):
                 'source': 'cache'
             }
             
-            # Enviar directamente al score service
             await kafka_producer.send('questions.answers', cache_response)
             logger.info(f"Respuesta desde cache enviada para pregunta ID: {message_id}")
             
         else:
             logger.info(f"Pregunta no encontrada en cache, enviando al LLM: {question[:50]}...")
-            
-            # Enviar al servicio LLM
+
             llm_message = {
                 'id': message_id,
                 'question': question,
@@ -352,15 +331,13 @@ async def init_answer_cache_consumer():
         
         await answer_consumer.start()
         logger.info("Answer cache consumer iniciado")
-        
-        # Loop para cachear respuestas
+
         async for message in answer_consumer:
             answer_data = message.value
             question = answer_data.get('question', '')
             answer = answer_data.get('answer', '')
             source = answer_data.get('source', '')
             
-            # Solo cachear respuestas que vienen del LLM (no las que ya vienen del cache)
             if question and answer and source != 'cache':
                 smart_cache.put(question, answer)
                 logger.info(f"Respuesta cacheada para pregunta: {question[:50]}...")
@@ -371,7 +348,7 @@ async def init_answer_cache_consumer():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Gestión del ciclo de vida de la aplicación"""
-    # Startup
+
     await init_kafka()
     
     # Iniciar consumer para cachear respuestas en background
@@ -381,7 +358,6 @@ async def lifespan(app: FastAPI):
     # Shutdown
     await close_kafka()
 
-# Crear aplicación FastAPI
 app = FastAPI(
     title="Smart Cache Service",
     description="Servicio de cache inteligente con múltiples políticas",

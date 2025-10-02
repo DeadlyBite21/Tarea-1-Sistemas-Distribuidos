@@ -1,0 +1,152 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>📊 Dashboard de Análisis de Cache</title>
+        <style>
+            body { 
+                font-family: Arial, sans-serif; 
+                margin: 20px; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+            }
+            .container {
+                background: white;
+                padding: 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+            .header { 
+                text-align: center; 
+                margin-bottom: 40px; 
+                padding: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border-radius: 10px;
+            }
+            .section { 
+                margin: 30px 0; 
+                padding: 20px;
+                background: #f8f9fa;
+                border-radius: 10px;
+                border-left: 5px solid #007bff;
+            }
+            .image-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+                gap: 30px;
+                margin: 20px 0;
+            }
+            .image-container {
+                text-align: center;
+                background: white;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            }
+            .image-container img {
+                max-width: 100%;
+                height: auto;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+            }
+            .image-title {
+                font-weight: bold;
+                margin: 10px 0;
+                color: #333;
+            }
+            .stats {
+                background: #e8f5e8;
+                padding: 15px;
+                border-radius: 5px;
+                margin: 10px 0;
+            }
+            .links {
+                display: flex;
+                gap: 15px;
+                flex-wrap: wrap;
+                justify-content: center;
+                margin: 20px 0;
+            }
+            .link {
+                background: #007bff;
+                color: white;
+                padding: 10px 20px;
+                text-decoration: none;
+                border-radius: 5px;
+                transition: background 0.3s;
+            }
+            .link:hover {
+                background: #0056b3;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>📊 Dashboard de Análisis de Cache</h1>
+                <p>Sistema Distribuido de Q&A con 10,000 Preguntas Reales</p>
+                <p>Generado: 2025-10-01 16:07:23</p>
+            </div>
+    
+            <div class="section">
+                <h2>📄 Reportes Detallados</h2>
+                <div class="links">
+        <a href="cache_analysis_report.html" class="link">🌐 Cache Analysis Report</a></div></div>
+            <div class="section">
+                <h2>📊 Visualizaciones Generadas</h2>
+                <div class="image-grid">
+        
+                <div class="image-container">
+                    <div class="image-title">🏗️ System Overview - Arquitectura</div>
+                    <img src="system_overview.png" alt="🏗️ System Overview - Arquitectura" />
+                    <div class="stats">
+                        <small>Archivo: system_overview.png</small>
+                    </div>
+                </div>
+            
+                <div class="image-container">
+                    <div class="image-title">🧪 Lfu Detailed Analysis - Experimento LFU</div>
+                    <img src="lfu_detailed_analysis.png" alt="🧪 Lfu Detailed Analysis - Experimento LFU" />
+                    <div class="stats">
+                        <small>Archivo: lfu_detailed_analysis.png</small>
+                    </div>
+                </div>
+            
+                <div class="image-container">
+                    <div class="image-title">🐳 Docker Services Analysis - Servicios Docker</div>
+                    <img src="docker_services_analysis.png" alt="🐳 Docker Services Analysis - Servicios Docker" />
+                    <div class="stats">
+                        <small>Archivo: docker_services_analysis.png</small>
+                    </div>
+                </div>
+            </div></div>
+        <div class="section">
+            <h2>⚙️ Información del Sistema</h2>
+            <div class="stats">
+                <strong>🏗️ Arquitectura:</strong> Microservicios con Docker Compose<br>
+                <strong>💾 Cache:</strong> Políticas LRU, LFU, FIFO<br>
+                <strong>🤖 LLM:</strong> Google Gemini 2.5 Flash<br>
+                <strong>📊 Dataset:</strong> 1.4M+ preguntas reales<br>
+                <strong>🔄 Messaging:</strong> Apache Kafka<br>
+                <strong>⚡ Rate Limit:</strong> 10 RPM (Gemini API)
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🛠️ Herramientas de Análisis</h2>
+            <p>Este dashboard fue generado usando las siguientes herramientas:</p>
+            <ul>
+                <li>📊 <strong>quick_graphs.py</strong> - Análisis específico del experimento LFU</li>
+                <li>🐳 <strong>docker_analyzer.py</strong> - Métricas de servicios Docker</li>
+                <li>📝 <strong>log_analyzer.py</strong> - Análisis completo de logs</li>
+                <li>🎨 <strong>visualization_coordinator.py</strong> - Coordinador de visualizaciones</li>
+            </ul>
+        </div>
+        
+        </div>
+    </body>
+    </html>
+    

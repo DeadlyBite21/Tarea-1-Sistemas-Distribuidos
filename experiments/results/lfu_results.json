@@ -1,0 +1,20 @@
+{
+  "total_requests": 30,
+  "cache_hits": 6,
+  "cache_misses": 24,
+  "hit_rate": 0.2,
+  "avg_response_time": 2.3627281188964842e-05,
+  "memory_usage": 10,
+  "evictions": 1,
+  "current_size": 10,
+  "experiment_metadata": {
+    "policy": "LFU",
+    "total_questions": 30,
+    "cache_size": 10,
+    "ttl": 600,
+    "duration_minutes": 4.1453629493713375,
+    "start_time": "2025-10-01 21:36:52",
+    "end_time": "2025-10-01 21:41:01",
+    "questions_processed": 30
+  }
+}
