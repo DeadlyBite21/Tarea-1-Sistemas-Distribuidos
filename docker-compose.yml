@@ -81,7 +81,11 @@ services:
     ports:
       - "8003:8003"
     environment:
+<<<<<<< Updated upstream
       - GOOGLE_API_KEY=AIzaSyDF4Z0pvyfpD3_mUfzaNyJs79rbmivfBAE
+=======
+      - GOOGLE_API_KEY=AIzaSyA1DA46XaHHjVUisfYPStBZM-XFEj1WkuE
+>>>>>>> Stashed changes
 
     depends_on:
       - kafka

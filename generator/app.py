@@ -10,21 +10,17 @@ from aiokafka import AIOKafkaProducer
 import random
 import aiohttp
 
-# Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Variables globales para Kafka
 kafka_producer: Optional[AIOKafkaProducer] = None
 
-# URL del servicio de storage
 STORAGE_SERVICE_URL = "http://storage:8004"
 
 async def get_random_question_from_storage():
     """Obtener una pregunta aleatoria del servicio de storage"""
     try:
         async with aiohttp.ClientSession() as session:
-            # Intentar obtener una pregunta aleatoria del storage usando el parámetro random
             async with session.get(f"{STORAGE_SERVICE_URL}/questions?limit=1&random=true") as response:
                 if response.status == 200:
                     data = await response.json()
@@ -34,7 +30,6 @@ async def get_random_question_from_storage():
                         if question:
                             return question
         
-        # Si no se puede obtener del storage, usar fallback
         logger.warning("No se pudo obtener pregunta del storage, usando fallback")
         return random.choice(FALLBACK_QUESTIONS)
         
@@ -71,13 +66,10 @@ async def close_kafka():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Gestión del ciclo de vida de la aplicación"""
-    # Startup
     await init_kafka()
     yield
-    # Shutdown
     await close_kafka()
 
-# Crear aplicación FastAPI
 app = FastAPI(
     title="Generator Service",
     description="Servicio generador de tráfico de preguntas",
@@ -92,17 +84,14 @@ async def generate_question():
         if not kafka_producer:
             raise HTTPException(status_code=500, detail="Kafka producer no disponible")
         
-        # Obtener pregunta aleatoria del storage
         question = await get_random_question_from_storage()
         
-        # Crear mensaje con ID único y timestamp
         message = {
             'id': str(uuid.uuid4()),
             'question': question,
             'timestamp': datetime.now().isoformat()
         }
-        
-        # Enviar mensaje al topic de requests
+
         await kafka_producer.send('questions.requests', message)
         
         logger.info(f"Pregunta generada y enviada: {question}")
@@ -129,15 +118,13 @@ async def generate_custom_question(question_data: dict):
         
         if not question:
             raise HTTPException(status_code=400, detail="Pregunta no puede estar vacía")
-        
-        # Crear mensaje con ID único y timestamp
+
         message = {
             'id': str(uuid.uuid4()),
             'question': question,
             'timestamp': datetime.now().isoformat()
         }
         
-        # Enviar mensaje al topic de requests
         await kafka_producer.send('questions.requests', message)
         
         logger.info(f"Pregunta personalizada enviada: {question}")
@@ -161,7 +148,7 @@ async def generate_batch_questions(batch_data: dict):
             raise HTTPException(status_code=500, detail="Kafka producer no disponible")
         
         count = batch_data.get('num_questions', batch_data.get('count', 5))
-        count = min(max(count, 1), 10000)  # Limitar entre 1 y 10,000
+        count = min(max(count, 1), 10000)
         
         messages = []
         

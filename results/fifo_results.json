@@ -1,0 +1,18 @@
+{
+  "total_requests": 10000,
+  "cache_hits": 45,
+  "cache_misses": 9955,
+  "hit_rate": 0.0045,
+  "avg_response_time": 6.092715263366699e-05,
+  "memory_usage": 34,
+  "evictions": 746,
+  "current_size": 34,
+  "experiment_metadata": {
+    "policy": "FIFO",
+    "total_questions": 10000,
+    "cache_size": 100,
+    "ttl": 600,
+    "duration_minutes": 1085.4509292523067,
+    "questions_processed": 10000
+  }
+}

@@ -8,17 +8,19 @@ from contextlib import asynccontextmanager
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 import google.generativeai as genai
 
-# Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Variables globales para Kafka
 kafka_consumer: Optional[AIOKafkaConsumer] = None
 kafka_producer: Optional[AIOKafkaProducer] = None
 
+<<<<<<< Updated upstream
 # Configuración de Gemini
 
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'AIzaSyDF4Z0pvyfpD3_mUfzaNyJs79rbmivfBAE')
+=======
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'AIzaSyA1DA46XaHHjVUisfYPStBZM-XFEj1WkuE')
+>>>>>>> Stashed changes
 
 
 genai.configure(api_key=GOOGLE_API_KEY)
@@ -28,7 +30,6 @@ async def init_kafka():
     global kafka_consumer, kafka_producer
     
     try:
-        # Configurar consumidor
         kafka_consumer = AIOKafkaConsumer(
             'questions.llm',
             bootstrap_servers='kafka:29092',
@@ -37,7 +38,6 @@ async def init_kafka():
             value_deserializer=lambda m: json.loads(m.decode('utf-8'))
         )
         
-        # Configurar productor  
         kafka_producer = AIOKafkaProducer(
             bootstrap_servers='kafka:29092',
             value_serializer=lambda v: json.dumps(v).encode('utf-8')
@@ -48,7 +48,6 @@ async def init_kafka():
         
         logger.info("Kafka consumer y producer iniciados correctamente")
         
-        # Iniciar el loop de consumo
         asyncio.create_task(consume_loop())
         
     except Exception as e:
@@ -85,11 +84,9 @@ async def process_message(message_data):
             logger.warning("Mensaje sin pregunta recibido")
             return
         
-        # Generar respuesta con Gemini
         logger.info(f"Procesando pregunta: {question}")
         response = await generate_gemini_response(question)
         
-        # Preparar mensaje para el servicio de score
         answer_message = {
             'id': message_id,
             'question': question,
@@ -97,7 +94,6 @@ async def process_message(message_data):
             'timestamp': message_data.get('timestamp', '')
         }
         
-        # Enviar a topic de respuestas
         await kafka_producer.send('questions.answers', answer_message)
         logger.info(f"Respuesta enviada para pregunta ID: {message_id}")
         
@@ -107,10 +103,8 @@ async def process_message(message_data):
 async def generate_gemini_response(question: str) -> str:
     """Generar respuesta usando Gemini"""
     try:
-        # Configurar el modelo
         model = genai.GenerativeModel('gemini-2.5-flash')
         
-        # Generar respuesta de manera asíncrona
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None, 
@@ -129,13 +123,10 @@ async def generate_gemini_response(question: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Gestión del ciclo de vida de la aplicación"""
-    # Startup
     await init_kafka()
     yield
-    # Shutdown
     await close_kafka()
 
-# Crear aplicación FastAPI
 app = FastAPI(
     title="LLM Service",
     description="Servicio de generación de respuestas usando Gemini",

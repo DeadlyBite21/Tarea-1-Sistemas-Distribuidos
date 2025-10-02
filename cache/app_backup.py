@@ -6,11 +6,9 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
-# Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Variables globales para Kafka y cache
 kafka_consumer: Optional[AIOKafkaConsumer] = None
 kafka_producer: Optional[AIOKafkaProducer] = None
 cache: Dict[str, str] = {}
@@ -20,7 +18,6 @@ async def init_kafka():
     global kafka_consumer, kafka_producer
     
     try:
-        # Configurar consumidor para requests del generator
         kafka_consumer = AIOKafkaConsumer(
             'questions.requests',
             bootstrap_servers='kafka:29092',
@@ -29,7 +26,6 @@ async def init_kafka():
             value_deserializer=lambda m: json.loads(m.decode('utf-8'))
         )
         
-        # Configurar productor para enviar al LLM
         kafka_producer = AIOKafkaProducer(
             bootstrap_servers='kafka:29092',
             value_serializer=lambda v: json.dumps(v).encode('utf-8')
@@ -40,7 +36,6 @@ async def init_kafka():
         
         logger.info("Kafka consumer y producer iniciados correctamente")
         
-        # Iniciar el loop de consumo
         asyncio.create_task(consume_loop())
         
     except Exception as e:
@@ -77,12 +72,10 @@ async def process_message(message_data):
         if not question:
             logger.warning("Mensaje sin pregunta recibido")
             return
-        
-        # Verificar si la pregunta está en cache
+
         if question in cache:
             logger.info(f"Respuesta encontrada en cache para: {question}")
             
-            # Preparar mensaje con respuesta desde cache
             cache_response = {
                 'id': message_id,
                 'question': question,
@@ -91,14 +84,12 @@ async def process_message(message_data):
                 'source': 'cache'
             }
             
-            # Enviar directamente al score service
             await kafka_producer.send('questions.answers', cache_response)
             logger.info(f"Respuesta desde cache enviada para pregunta ID: {message_id}")
             
         else:
             logger.info(f"Pregunta no encontrada en cache, enviando al LLM: {question}")
             
-            # Enviar al servicio LLM
             llm_message = {
                 'id': message_id,
                 'question': question,
@@ -111,7 +102,6 @@ async def process_message(message_data):
     except Exception as e:
         logger.error(f"Error procesando mensaje: {e}")
 
-# Consumidor adicional para cachear respuestas del LLM
 async def init_answer_cache_consumer():
     """Inicializar consumidor para cachear respuestas del LLM"""
     try:
@@ -125,15 +115,13 @@ async def init_answer_cache_consumer():
         
         await answer_consumer.start()
         logger.info("Answer cache consumer iniciado")
-        
-        # Loop para cachear respuestas
+
         async for message in answer_consumer:
             answer_data = message.value
             question = answer_data.get('question', '')
             answer = answer_data.get('answer', '')
             source = answer_data.get('source', '')
-            
-            # Solo cachear respuestas que vienen del LLM (no las que ya vienen del cache)
+
             if question and answer and source != 'cache':
                 cache[question] = answer
                 logger.info(f"Respuesta cacheada para pregunta: {question[:50]}...")
@@ -144,17 +132,13 @@ async def init_answer_cache_consumer():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Gestión del ciclo de vida de la aplicación"""
-    # Startup
     await init_kafka()
     
-    # Iniciar consumer para cachear respuestas en background
     asyncio.create_task(init_answer_cache_consumer())
     
     yield
-    # Shutdown
     await close_kafka()
 
-# Crear aplicación FastAPI
 app = FastAPI(
     title="Cache Service",
     description="Servicio de cache para preguntas y respuestas",

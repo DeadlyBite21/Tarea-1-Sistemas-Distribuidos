@@ -9,15 +9,13 @@ from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from aiokafka import AIOKafkaConsumer
 
-# Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Variables globales
 kafka_consumer: Optional[AIOKafkaConsumer] = None
 DB = "data.db"
-DATASET = "train.csv"
-used_question_ids = set()  # Para evitar repetir preguntas
+DATASET = "test_100.csv"
+used_question_ids = set()  
 
 def init_db():
     """Inicializar base de datos"""
@@ -46,7 +44,6 @@ def load_dataset():
     conn = sqlite3.connect(DB)
     c = conn.cursor()
     
-    # Verificar si ya hay datos
     count = c.execute("SELECT COUNT(*) FROM qa").fetchone()[0]
     if count > 0:
         logger.info(f"Base de datos ya contiene {count} registros")
@@ -57,7 +54,7 @@ def load_dataset():
     
     with open(DATASET, "r", encoding="utf-8") as f:
         reader = csv.reader(f)
-        next(reader)  # saltar header
+        next(reader) 
         loaded = 0
         for row in reader:
             try:
@@ -88,7 +85,6 @@ async def init_kafka():
         await kafka_consumer.start()
         logger.info("Kafka consumer iniciado correctamente")
         
-        # Iniciar el loop de consumo
         asyncio.create_task(consume_loop())
         
     except Exception as e:
@@ -126,25 +122,21 @@ async def process_message(message_data):
             logger.warning("Mensaje incompleto recibido")
             return
         
-        # Guardar en base de datos
         conn = sqlite3.connect(DB)
         c = conn.cursor()
         
-        # Verificar si ya existe esta pregunta
         existing = c.execute(
             "SELECT id, count FROM qa WHERE question=? LIMIT 1", 
             (question,)
         ).fetchone()
         
         if existing:
-            # Actualizar registro existente
             c.execute(
                 "UPDATE qa SET message_id=?, generated_answer=?, score=?, timestamp=?, count=? WHERE id=?",
                 (message_id, answer, score, timestamp, existing[1] + 1, existing[0])
             )
             logger.info(f"Registro actualizado para pregunta existente (count: {existing[1] + 1})")
         else:
-            # Insertar nuevo registro
             c.execute(
                 "INSERT INTO qa (message_id, question, generated_answer, score, timestamp) VALUES (?,?,?,?,?)",
                 (message_id, question, answer, score, timestamp)
@@ -160,17 +152,14 @@ async def process_message(message_data):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Gestión del ciclo de vida de la aplicación"""
-    # Startup
     init_db()
     load_dataset()
     await init_kafka()
     
     yield
     
-    # Shutdown
     await close_kafka()
 
-# Crear aplicación FastAPI
 app = FastAPI(
     title="Storage Service",
     description="Servicio de almacenamiento de preguntas y respuestas",
@@ -280,7 +269,6 @@ async def get_questions(limit: int = 100, offset: int = 0, random: bool = False,
     """Obtener múltiples preguntas de la base de datos"""
     global used_question_ids
     
-    # Resetear historial si se solicita
     if reset_history:
         used_question_ids.clear()
     
@@ -289,7 +277,6 @@ async def get_questions(limit: int = 100, offset: int = 0, random: bool = False,
         c = conn.cursor()
         
         if random:
-            # Para preguntas aleatorias, excluir las ya usadas
             if used_question_ids:
                 placeholders = ','.join(['?' for _ in used_question_ids])
                 query = f"""
@@ -310,7 +297,6 @@ async def get_questions(limit: int = 100, offset: int = 0, random: bool = False,
             c.execute(query, params)
             rows = c.fetchall()
             
-            # Si no hay suficientes preguntas nuevas, resetear y obtener más
             if len(rows) < limit and used_question_ids:
                 used_question_ids.clear()
                 c.execute("""
@@ -320,7 +306,6 @@ async def get_questions(limit: int = 100, offset: int = 0, random: bool = False,
                 """, (limit,))
                 rows = c.fetchall()
         else:
-            # Obtener preguntas con paginación (sin filtro de repetición)
             c.execute("SELECT id, question, best_answer FROM qa WHERE question IS NOT NULL AND question != '' LIMIT ? OFFSET ?", (limit, offset))
             rows = c.fetchall()
         
@@ -333,7 +318,6 @@ async def get_questions(limit: int = 100, offset: int = 0, random: bool = False,
                 "question": row[1],
                 "best_answer": row[2]
             })
-            # Agregar al historial si es aleatorio
             if random:
                 used_question_ids.add(row[0])
         
@@ -366,7 +350,6 @@ async def get_popular_questions(limit: int = 50, random: bool = False, reset_his
     """Obtener preguntas más frecuentes (si han sido procesadas múltiples veces)"""
     global used_question_ids
     
-    # Resetear historial si se solicita
     if reset_history:
         used_question_ids.clear()
     
@@ -375,7 +358,6 @@ async def get_popular_questions(limit: int = 50, random: bool = False, reset_his
         c = conn.cursor()
         
         if random:
-            # Para preguntas aleatorias, excluir las ya usadas
             if used_question_ids:
                 placeholders = ','.join(['?' for _ in used_question_ids])
                 query = f"""
@@ -400,7 +382,6 @@ async def get_popular_questions(limit: int = 50, random: bool = False, reset_his
             c.execute(query, params)
             rows = c.fetchall()
             
-            # Si no hay suficientes preguntas nuevas, resetear y obtener más
             if len(rows) < limit and used_question_ids:
                 used_question_ids.clear()
                 c.execute("""
@@ -412,7 +393,6 @@ async def get_popular_questions(limit: int = 50, random: bool = False, reset_his
                 """, (limit,))
                 rows = c.fetchall()
         else:
-            # Ordenar por popularidad (count y score)
             c.execute("""
                 SELECT id, question, best_answer, count, score 
                 FROM qa 
@@ -433,7 +413,6 @@ async def get_popular_questions(limit: int = 50, random: bool = False, reset_his
                 "count": row[3] or 1,
                 "score": row[4]
             })
-            # Agregar al historial si es aleatorio
             if random:
                 used_question_ids.add(row[0])
         
